@@ -1,0 +1,6 @@
+@TuringMachinesAPI_HostAddress = http://localhost:5052
+
+GET {{TuringMachinesAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
