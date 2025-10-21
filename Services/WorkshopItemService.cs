@@ -15,7 +15,7 @@ namespace TuringMachinesAPI.Services
             db = context;
         }
 
-        public IEnumerable<Dtos.WorkshopItem> GetAll(string? NameFilter)
+        public IEnumerable<object> GetAll(string? NameFilter)
         {
             var Items = db.WorkshopItems
                 .AsNoTracking()
@@ -37,27 +37,65 @@ namespace TuringMachinesAPI.Services
                     .Where(wi => wi.Name.Contains(NameFilter, StringComparison.OrdinalIgnoreCase))
                     .ToList();
             }
-            return Items.Select(wi => new Dtos.WorkshopItem
+            foreach (Entities.WorkshopItem i in Items)
             {
-                Id = wi.Id,
-                Name = wi.Name,
-                Type = wi.Type,
-                Description = wi.Description,
-                Author = db.Players
-                    .AsNoTracking()
-                    .Where(p => p.Id == wi.AuthorId)
-                    .Select(p => p.Username)
-                    .FirstOrDefault() ?? "Unknown",
-                Rating = wi.Rating,
-                Subscribers = db.WorkshopItems
-                    .AsNoTracking()
-                    .Where(w => w.Id == wi.Id && w.Subscribers != null)
-                    .Select(w => w.Subscribers!.Count)
-                    .FirstOrDefault()
-            });
+                if (i.Type == "Level")
+                {
+                    var level = db.Levels
+                        .AsNoTracking()
+                        .FirstOrDefault(l => l.WorkshopItemId == i.Id);
+                    if (level != null)
+                    {
+                        yield return new Dtos.Level
+                        {
+                            Id = i.Id,
+                            LevelId = level.Id,
+                            Name = i.Name,
+                            Description = i.Description,
+                            Author = db.Players
+                                .AsNoTracking()
+                                .Where(p => p.Id == i.AuthorId)
+                                .Select(p => p.Username)
+                                .FirstOrDefault() ?? "Unknown",
+                            Type = i.Type,
+                            LevelType = level.LevelType,
+                            Rating = i.Rating,
+                            LevelData = level.LevelData,
+                            Subscribers = i.Subscribers?.Count ?? 0
+                        };
+                        continue;
+                    }
+                }
+                else if (i.Type == "Machine")
+                {
+                    var machine = db.Machines
+                        .AsNoTracking()
+                        .FirstOrDefault(m => m.WorkshopItemId == i.Id);
+                    if (machine != null)
+                    {
+                        yield return new Dtos.Machine
+                        {
+                            Id = i.Id,
+                            MachineId = machine.Id,
+                            Name = i.Name,
+                            Description = i.Description,
+                            Author = db.Players
+                                .AsNoTracking()
+                                .Where(p => p.Id == i.AuthorId)
+                                .Select(p => p.Username)
+                                .FirstOrDefault() ?? "Unknown",
+                            Type = i.Type,
+                            Rating = i.Rating,
+                            MachineData = machine.MachineData,
+                            Subscribers = i.Subscribers?.Count ?? 0
+                        };
+                        continue;
+                    }
+                }
+            }
         }
 
-        public Dtos.WorkshopItem? GetById(int id)
+        public object? GetById(int id)
         {
             var entity = db.WorkshopItems
                 .AsNoTracking()
@@ -68,16 +106,58 @@ namespace TuringMachinesAPI.Services
                 .Where(p => p.Id == entity.AuthorId)
                 .Select(p => p.Username)
                 .FirstOrDefault() ?? "Unknown";
-            return new Dtos.WorkshopItem
+            
+            if (entity.Type == "Level")
             {
-                Id = entity.Id,
-                Name = entity.Name,
-                Type = entity.Type,
-                Description = entity.Description,
-                Author = authorName,
-                Rating = entity.Rating,
-                Subscribers = entity.Subscribers?.Count ?? 0
-            };
+                var level = db.Levels
+                    .AsNoTracking()
+                    .FirstOrDefault(l => l.WorkshopItemId == entity.Id);
+
+                return new Dtos.Level
+                {
+                    Id = entity.Id,
+                    LevelId = level?.Id ?? 0,
+                    Name = entity.Name,
+                    Description = entity.Description,
+                    Author = authorName,
+                    Type = entity.Type,
+                    LevelType = level?.LevelType ?? "",
+                    Rating = entity.Rating,
+                    LevelData = level?.LevelData ?? "",
+                    Subscribers = entity.Subscribers?.Count ?? 0
+                };
+            }
+            else if (entity.Type == "Machine")
+            {
+                var machine = db.Machines
+                    .AsNoTracking()
+                    .FirstOrDefault(m => m.WorkshopItemId == entity.Id);
+                return new Dtos.Machine
+                {
+                    Id = entity.Id,
+                    MachineId = machine?.Id ?? 0,
+                    Name = entity.Name,
+                    Description = entity.Description,
+                    Author = authorName,
+                    Type = entity.Type,
+                    Rating = entity.Rating,
+                    MachineData = machine?.MachineData ?? "",
+                    Subscribers = entity.Subscribers?.Count ?? 0
+                };
+            }
+            else
+            {
+                return new Dtos.WorkshopItem
+                {
+                    Id = entity.Id,
+                    Name = entity.Name,
+                    Description = entity.Description,
+                    Author = authorName,
+                    Type = entity.Type,
+                    Rating = entity.Rating,
+                    Subscribers = entity.Subscribers?.Count ?? 0
+                };
+            }
         }
 
         public Dtos.WorkshopItem? AddWorkshopItem(JsonElement jsonElement)
@@ -104,7 +184,7 @@ namespace TuringMachinesAPI.Services
             db.WorkshopItems.Add(newItem);
             db.SaveChanges();
 
-            if (newItem.Type == "Level")
+            if (type == "Level")
             {
                 var LevelItem = new Entities.Level
                 {
@@ -112,6 +192,8 @@ namespace TuringMachinesAPI.Services
                     LevelType = "Workshop",
                     LevelData = jsonElement.GetProperty("levelData").GetRawText()
                 };
+                db.Levels.Add(LevelItem);
+                db.SaveChanges();
 
                 return new Dtos.Level
                 {
@@ -123,16 +205,20 @@ namespace TuringMachinesAPI.Services
                     Type = newItem.Type,
                     LevelType = LevelItem.LevelType,
                     Rating = newItem.Rating,
+                    LevelData = LevelItem.LevelData,
                     Subscribers = 0
                 };
             }
-            else if (newItem.Type == "Macine")
+            else if (type == "Macine")
             {
                 var MachineItem = new Entities.Machine
                 {
                     WorkshopItemId = newItem.Id,
                     MachineData = jsonElement.GetProperty("machineData").GetRawText()
                 };
+                db.Machines.Add(MachineItem);
+                db.SaveChanges();
+
                 return new Dtos.Machine
                 {
                     Id = newItem.Id,
@@ -142,6 +228,7 @@ namespace TuringMachinesAPI.Services
                     Author = authorName ?? "Unknown",
                     Type = newItem.Type,
                     Rating = newItem.Rating,
+                    MachineData = MachineItem.MachineData,
                     Subscribers = 0
                 };
             }
@@ -164,18 +251,18 @@ namespace TuringMachinesAPI.Services
         {
             var WorkShopItem = db.WorkshopItems.FirstOrDefault(wi => wi.Id == ItemId);
             if (WorkShopItem == null)
-            {
                 return false;
-            }
-            if (db.Reviews.Any(r => r.UserId == userId && r.WorkshopItemId == ItemId))
+            var existingReview = db.Reviews.FirstOrDefault(r => r.UserId == userId && r.WorkshopItemId == ItemId);
+            if (existingReview != null)
             {
-                var existingReview = db.Reviews.First(r => r.UserId == userId && r.WorkshopItemId == ItemId);
                 existingReview.Rating = Rating;
+                db.SaveChanges();
                 WorkShopItem.Rating = db.Reviews
                     .Where(r => r.WorkshopItemId == ItemId)
                     .Select(r => r.Rating)
                     .Average();
                 db.SaveChanges();
+
                 return true;
             }
             var review = new Entities.Review
@@ -184,15 +271,19 @@ namespace TuringMachinesAPI.Services
                 WorkshopItemId = ItemId,
                 Rating = Rating
             };
-            WorkShopItem!.Rating = db.Reviews
+
+            db.Reviews.Add(review);
+            db.SaveChanges();
+
+            WorkShopItem.Rating = db.Reviews
                 .Where(r => r.WorkshopItemId == ItemId)
                 .Select(r => r.Rating)
-                .Append(Rating)
                 .Average();
-            db.Reviews.Add(review);
+
             db.SaveChanges();
             return true;
         }
+
 
         public bool SubscribeToWorkshopItem(int userId, int workshopItemId)
         {
@@ -235,6 +326,16 @@ namespace TuringMachinesAPI.Services
                 return false;
             }
             return workshopItem.Subscribers.Contains(userId);
+        }
+
+        public int? UserRatingForItem(int userId, int workshopItemId)
+        {
+            var review = db.Reviews.FirstOrDefault(r => r.UserId == userId && r.WorkshopItemId == workshopItemId);
+            if (review == null)
+            {
+                return null;
+            }
+            return review.Rating;
         }
     }
 }

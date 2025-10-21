@@ -11,7 +11,7 @@ using TuringMachinesAPI.DataSources;
 namespace TuringMachinesAPI.Migrations
 {
     [DbContext(typeof(TuringMachinesDbContext))]
-    [Migration("20251021192823_InitialCreate")]
+    [Migration("20251021225937_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
