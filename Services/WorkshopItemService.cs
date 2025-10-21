@@ -8,220 +8,233 @@ namespace TuringMachinesAPI.Services
 {
     public class WorkshopItemService
     {
-        private readonly TuringMachinesDbContext _db;
+        private readonly TuringMachinesDbContext db;
 
-        public WorkshopItemService(TuringMachinesDbContext dbContext)
+        public WorkshopItemService(TuringMachinesDbContext context)
         {
-            _db = dbContext;
+            db = context;
         }
 
-        public IEnumerable<Dtos.WorkshopItem> GetAll()
+        public IEnumerable<Dtos.WorkshopItem> GetAll(string? NameFilter)
         {
-            return _db.WorkshopItems
+            var Items = db.WorkshopItems
                 .AsNoTracking()
-                .Select(w => new Dtos.WorkshopItem
+                .Select(wi => new Entities.WorkshopItem
                 {
-                    Id = w.Id,
-                    ItemTypeId = w.ItemTypeId,
-                    Type = w.Type,
-                    Author = _db.Players
-                        .Where(p => p.Id == w.AuthorId)
-                        .Select(p => new Dtos.Player
-                        {
-                            Id = p.Id,
-                            Username = p.Username,
-                            Role = p.Role,
-                            Password = null
-                        })
-                        .FirstOrDefault() ?? new Dtos.Player(),
-                    Rating = _db.Reviews
-                        .Where(r => r.WorkshopItemId == w.Id)
-                        .Select(r => (double?)r.Rating)
-                        .Average() ?? 0.0,
+                    Id = wi.Id,
+                    Name = wi.Name,
+                    Type = wi.Type,
+                    Description = wi.Description,
+                    AuthorId = wi.AuthorId,
+                    Rating = wi.Rating,
                     Subscribers = null
                 })
                 .ToList();
+
+            if (!string.IsNullOrWhiteSpace(NameFilter))
+            {
+                Items = Items
+                    .Where(wi => wi.Name.Contains(NameFilter, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
+            return Items.Select(wi => new Dtos.WorkshopItem
+            {
+                Id = wi.Id,
+                Name = wi.Name,
+                Type = wi.Type,
+                Description = wi.Description,
+                Author = db.Players
+                    .AsNoTracking()
+                    .Where(p => p.Id == wi.AuthorId)
+                    .Select(p => p.Username)
+                    .FirstOrDefault() ?? "Unknown",
+                Rating = wi.Rating,
+                Subscribers = db.WorkshopItems
+                    .AsNoTracking()
+                    .Where(w => w.Id == wi.Id && w.Subscribers != null)
+                    .Select(w => w.Subscribers!.Count)
+                    .FirstOrDefault()
+            });
         }
 
-        public (Dtos.WorkshopItem? item, object? content) GetById(int id)
+        public Dtos.WorkshopItem? GetById(int id)
         {
-            var w = _db.WorkshopItems.AsNoTracking().FirstOrDefault(w => w.Id == id);
-            if (w == null) return (null, null);
-
-            var author = _db.Players
-                .Where(p => p.Id == w.AuthorId)
-                .Select(p => new Dtos.Player
-                {
-                    Id = p.Id,
-                    Username = p.Username,
-                    Role = p.Role,
-                    Password = null
-                })
-                .FirstOrDefault() ?? new Dtos.Player();
-
-            var itemDto = new Dtos.WorkshopItem
+            var entity = db.WorkshopItems
+                .AsNoTracking()
+                .FirstOrDefault(wi => wi.Id == id);
+            if (entity is null) return null;
+            var authorName = db.Players
+                .AsNoTracking()
+                .Where(p => p.Id == entity.AuthorId)
+                .Select(p => p.Username)
+                .FirstOrDefault() ?? "Unknown";
+            return new Dtos.WorkshopItem
             {
-                Id = w.Id,
-                ItemTypeId = w.ItemTypeId,
-                Type = w.Type,
-                Author = author,
-                Rating = _db.Reviews
-                    .Where(r => r.WorkshopItemId == w.Id)
-                    .Select(r => (double?)r.Rating)
-                    .Average() ?? 0.0,
-                Subscribers = null
+                Id = entity.Id,
+                Name = entity.Name,
+                Type = entity.Type,
+                Description = entity.Description,
+                Author = authorName,
+                Rating = entity.Rating,
+                Subscribers = entity.Subscribers?.Count ?? 0
             };
-
-            object? content = null;
-
-            if (w.Type == "Level")
-            {
-                var level = _db.Levels.AsNoTracking().FirstOrDefault(l => l.Id == w.ItemTypeId);
-                if (level != null)
-                {
-                    content = new Dtos.Level
-                    {
-                        Id = level.Id,
-                        Name = level.Name,
-                        Description = level.Description,
-                        Type = level.Type,
-                        LevelData = level.LevelData
-                    };
-                }
-            }
-            else if (w.Type == "Machine")
-            {
-                var machine = _db.Machines.AsNoTracking().FirstOrDefault(m => m.Id == w.ItemTypeId);
-                if (machine != null)
-                {
-                    content = new Dtos.Machine
-                    {
-                        Id = machine.Id,
-                        Name = machine.Name,
-                        Alphabet = machine.Alphabet,
-                        MachineData = machine.MachineData
-                    };
-                }
-            }
-
-            return (itemDto, content);
         }
 
-        public (Dtos.WorkshopItem item, Dtos.Level level) CreateWorkshopLevel(JsonElement levelJson, int authorId)
+        public Dtos.WorkshopItem? AddWorkshopItem(JsonElement jsonElement)
         {
-            string name = "Untitled";
-            string description = "";
-            string type = "Workshop";
-
-            try
-            {
-                if (levelJson.TryGetProperty("data", out var data))
-                {
-                    if (data.TryGetProperty("name", out var n))
-                        name = n.GetString() ?? name;
-                    if (data.TryGetProperty("description", out var d))
-                        description = d.GetString() ?? description;
-                    if (data.TryGetProperty("level_type", out var t))
-                        type = t.GetString() ?? type;
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[WARN] Failed to parse level JSON: {ex.Message}");
-            }
-
-            var levelEntity = new Entities.Level
+            if (jsonElement.ValueKind != JsonValueKind.Object)
+                return null;
+            var name = jsonElement.GetProperty("name").GetString() ?? "";
+            var description = jsonElement.GetProperty("description").GetString() ?? "";
+            var authorName = jsonElement.GetProperty("authorName").GetString();
+            var type = jsonElement.GetProperty("type").GetString() ?? "";
+            var newItem = new Entities.WorkshopItem
             {
                 Name = name,
                 Description = description,
+                AuthorId = db.Players
+                    .AsNoTracking()
+                    .Where(p => p.Username == authorName)
+                    .Select(p => p.Id)
+                    .FirstOrDefault(),
                 Type = type,
-                LevelData = levelJson.GetRawText()
+                Rating = 0.0,
+                Subscribers = null
             };
-            _db.Levels.Add(levelEntity);
-            _db.SaveChanges();
+            db.WorkshopItems.Add(newItem);
+            db.SaveChanges();
 
-            var workshopEntity = new Entities.WorkshopItem
+            if (newItem.Type == "Level")
             {
-                ItemTypeId = levelEntity.Id,
-                AuthorId = authorId,
-                Type = "Level",
-                Rating = 0.0
-            };
-            _db.WorkshopItems.Add(workshopEntity);
-            _db.SaveChanges();
-
-            var author = _db.Players
-                .Where(p => p.Id == authorId)
-                .Select(p => new Dtos.Player
+                var LevelItem = new Entities.Level
                 {
-                    Id = p.Id,
-                    Username = p.Username,
-                    Role = p.Role,
-                    Password = null
-                })
-                .FirstOrDefault() ?? new Dtos.Player();
+                    WorkshopItemId = newItem.Id,
+                    LevelType = "Workshop",
+                    LevelData = jsonElement.GetProperty("levelData").GetRawText()
+                };
 
-            var itemDto = new Dtos.WorkshopItem
+                return new Dtos.Level
+                {
+                    Id = newItem.Id,
+                    LevelId = LevelItem.Id,
+                    Name = newItem.Name,
+                    Description = newItem.Description,
+                    Author = authorName ?? "Unknown",
+                    Type = newItem.Type,
+                    LevelType = LevelItem.LevelType,
+                    Rating = newItem.Rating,
+                    Subscribers = 0
+                };
+            }
+            else if (newItem.Type == "Macine")
             {
-                Id = workshopEntity.Id,
-                ItemTypeId = levelEntity.Id,
-                Type = "Level",
-                Author = author,
-                Rating = 0.0
-            };
-
-            var levelDto = new Dtos.Level
+                var MachineItem = new Entities.Machine
+                {
+                    WorkshopItemId = newItem.Id,
+                    MachineData = jsonElement.GetProperty("machineData").GetRawText()
+                };
+                return new Dtos.Machine
+                {
+                    Id = newItem.Id,
+                    MachineId = MachineItem.Id,
+                    Name = newItem.Name,
+                    Description = newItem.Description,
+                    Author = authorName ?? "Unknown",
+                    Type = newItem.Type,
+                    Rating = newItem.Rating,
+                    Subscribers = 0
+                };
+            }
+            else
             {
-                Id = levelEntity.Id,
-                Name = levelEntity.Name,
-                Description = levelEntity.Description,
-                Type = levelEntity.Type,
-                LevelData = levelEntity.LevelData
-            };
-
-            return (itemDto, levelDto);
+                return new Dtos.WorkshopItem
+                {
+                    Id = newItem.Id,
+                    Name = newItem.Name,
+                    Description = newItem.Description,
+                    Author = authorName ?? "Unknown",
+                    Type = newItem.Type,
+                    Rating = newItem.Rating,
+                    Subscribers = 0
+                };
+            }
         }
 
-        public bool AddOrUpdateRating(int workshopId, int userId, int ratingValue)
+        public bool RateWorkshopItem(int userId, int ItemId, int Rating)
         {
-            var item = _db.WorkshopItems.FirstOrDefault(w => w.Id == workshopId);
-            if (item == null) return false;
-
-            var existing = _db.Reviews.FirstOrDefault(r => r.WorkshopItemId == workshopId && r.UserId == userId);
-            if (existing != null)
-                existing.Rating = ratingValue;
-            else
-                _db.Reviews.Add(new Entities.Review
-                {
-                    WorkshopItemId = workshopId,
-                    UserId = userId,
-                    Rating = ratingValue
-                });
-
-            _db.SaveChanges();
-
-            var avg = _db.Reviews
-                .Where(r => r.WorkshopItemId == workshopId)
-                .Select(r => (double?)r.Rating)
-                .Average() ?? 0.0;
-
-            item.Rating = avg;
-            _db.SaveChanges();
-
+            var WorkShopItem = db.WorkshopItems.FirstOrDefault(wi => wi.Id == ItemId);
+            if (WorkShopItem == null)
+            {
+                return false;
+            }
+            if (db.Reviews.Any(r => r.UserId == userId && r.WorkshopItemId == ItemId))
+            {
+                var existingReview = db.Reviews.First(r => r.UserId == userId && r.WorkshopItemId == ItemId);
+                existingReview.Rating = Rating;
+                WorkShopItem.Rating = db.Reviews
+                    .Where(r => r.WorkshopItemId == ItemId)
+                    .Select(r => r.Rating)
+                    .Average();
+                db.SaveChanges();
+                return true;
+            }
+            var review = new Entities.Review
+            {
+                UserId = userId,
+                WorkshopItemId = ItemId,
+                Rating = Rating
+            };
+            WorkShopItem!.Rating = db.Reviews
+                .Where(r => r.WorkshopItemId == ItemId)
+                .Select(r => r.Rating)
+                .Append(Rating)
+                .Average();
+            db.Reviews.Add(review);
+            db.SaveChanges();
             return true;
         }
-        public bool ToggleSubscription(int workshopId, int playerId)
+
+        public bool SubscribeToWorkshopItem(int userId, int workshopItemId)
         {
-            var item = _db.WorkshopItems.FirstOrDefault(w => w.Id == workshopId);
-            if (item == null) return false;
+            var workshopItem = db.WorkshopItems.FirstOrDefault(wi => wi.Id == workshopItemId);
+            if (workshopItem == null)
+            {
+                return false;
+            }
+            if (workshopItem.Subscribers == null)
+            {
+                workshopItem.Subscribers = new List<int>();
+            }
+            if (!IsUserSubscribed(userId, workshopItemId))
+            {
+                workshopItem.Subscribers.Add(userId);
+                db.SaveChanges();
+                return true;
+            }
+            return false;
+        }
 
-            if (item.Subscribers.Contains(playerId))
-                item.Subscribers.Remove(playerId);
-            else
-                item.Subscribers.Add(playerId);
+        public bool UnsubscribeFromWorkshopItem(int userId, int workshopItemId)
+        {
+            if (IsUserSubscribed(userId, workshopItemId))
+            {
+                var workshopItem = db.WorkshopItems.FirstOrDefault(wi => wi.Id == workshopItemId);
+                workshopItem!.Subscribers!.Remove(userId);
+                db.SaveChanges();
+                return true;
+            }
 
-            _db.SaveChanges();
-            return true;
+            return false;
+        }
+
+        public bool IsUserSubscribed(int userId, int workshopItemId)
+        {
+            var workshopItem = db.WorkshopItems.FirstOrDefault(wi => wi.Id == workshopItemId);
+            if (workshopItem == null || workshopItem.Subscribers == null)
+            {
+                return false;
+            }
+            return workshopItem.Subscribers.Contains(userId);
         }
     }
 }

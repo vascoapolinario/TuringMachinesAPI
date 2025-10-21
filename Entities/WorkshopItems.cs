@@ -10,7 +10,12 @@ namespace TuringMachinesAPI.Entities
         public int Id { get; set; }
 
         [Required]
-        public int ItemTypeId { get; set; }
+        [StringLength(100)]
+        public string Name { get; set; } = "";
+
+        [Required]
+        [StringLength(250)]
+        public string Description { get; set; } = "";
 
         [Required]
         public int AuthorId { get; set; }

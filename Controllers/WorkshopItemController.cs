@@ -18,13 +18,13 @@ namespace TuringMachinesAPI.Controllers
         }
 
         /// <summary>
-        /// Get all workshop items (summary).
+        /// Get all workshop items.
         /// </summary>
         [HttpGet]
         [ProducesResponseType(typeof(IEnumerable<WorkshopItem>), StatusCodes.Status200OK)]
-        public IActionResult GetAll()
+        public IActionResult GetAllItems(string? NameFilter)
         {
-            var items = _service.GetAll();
+            var items = _service.GetAll(NameFilter);
             return Ok(items);
         }
 
@@ -32,58 +32,85 @@ namespace TuringMachinesAPI.Controllers
         /// Get a specific workshop item and its content.
         /// </summary>
         [HttpGet("{id:int}")]
-        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(WorkshopItem), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public IActionResult GetById(int id)
         {
-            var (item, content) = _service.GetById(id);
-            if (item == null) return NotFound();
-            return Ok(new { item, content });
+            WorkshopItem? item = _service.GetById(id);
+            if (item is null)
+                return NotFound($"Workshop item with ID {id} not found.");
+            return Ok(item);
         }
 
         /// <summary>
-        /// Create a new workshop item (Level only for now).
+        /// Create a new workshop item
         /// </summary>
         [Authorize]
         [HttpPost]
         [ProducesResponseType(typeof(object), StatusCodes.Status201Created)]
-        public IActionResult Create([FromBody] JsonElement levelJson)
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public IActionResult Create([FromBody] JsonElement WorkshopItemJson)
         {
-            if (levelJson.ValueKind == JsonValueKind.Undefined || levelJson.ValueKind == JsonValueKind.Null)
-                return BadRequest("Invalid or empty JSON payload.");
-
-            var authorId = int.Parse(User.FindFirst("id")!.Value);
-            var (item, level) = _service.CreateWorkshopLevel(levelJson, authorId);
-
-            return CreatedAtAction(nameof(GetById), new { id = item.Id }, new { item, level });
+            WorkshopItem? item = _service.AddWorkshopItem(WorkshopItemJson);
+            if (item is null)
+                return BadRequest(new { message = "Invalid workshop item data." });
+            return CreatedAtAction(nameof(GetById), new { id = item.Id }, item);
         }
 
         /// <summary>
         /// Rate a workshop item (1–5).
         /// </summary>
         [Authorize]
-        [HttpPost("{id:int}/rate/{value:int}")]
+        [HttpPost("{WorkshopItemId:int}/rate/{Rating:int}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public IActionResult Rate(int id, int value)
+        public IActionResult Rate(
+            [FromRoute(Name = "WorkshopItemId")] int WorkshopItemId,
+            [FromRoute(Name = "Rating")] int Rating)
         {
-            var userId = int.Parse(User.FindFirst("id")!.Value);
-            var ok = _service.AddOrUpdateRating(id, userId, value);
-            return ok ? Ok(new { success = true }) : NotFound();
+            Console.WriteLine("Debugging: Rate endpoint called");
+            var playerId = int.Parse(User.FindFirst("id")!.Value);
+            Console.WriteLine("Debug: PlayerId: " + playerId);
+            Console.WriteLine("Params Debug: WorkshopItemId: " + WorkshopItemId + ", Rating: " + Rating);
+            if (Rating < 1 || Rating > 5)
+            {
+                return BadRequest(new { message = "Rating value must be between 1 and 5." });
+            }
+            return _service.RateWorkshopItem(playerId, WorkshopItemId, Rating) ? 
+                Ok() : NotFound();
         }
 
         /// <summary>
         /// Subscribe or unsubscribe from a workshop item.
         /// </summary>
         [Authorize]
-        [HttpPost("{id:int}/subscribe")]
+        [HttpPost("{WorkshopItemId:int}/subscribe")]
         [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public IActionResult Subscribe(int id)
+        public IActionResult Subscribe(int WorkshopItemId)
         {
-            var playerId = int.Parse(User.FindFirst("id")!.Value);
-            var ok = _service.ToggleSubscription(id, playerId);
-            return ok ? Ok(new { success = true }) : NotFound();
+            int UserId = int.Parse(User.FindFirst("id")!.Value);
+            var item = _service.GetById(WorkshopItemId);
+            if (item is null)
+            {
+                return NotFound();
+            }
+            else {
+                if (_service.IsUserSubscribed(UserId, WorkshopItemId))
+                {
+                    _service.UnsubscribeFromWorkshopItem(UserId, WorkshopItemId);
+                    return Ok();
+                }
+                else
+                {
+                    _service.SubscribeToWorkshopItem(UserId, WorkshopItemId);
+                    return Ok();
+                }
+            }
         }
     }
 }

@@ -29,24 +29,17 @@ namespace TuringMachinesAPI.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasMaxLength(250)
-                        .HasColumnType("character varying(250)");
-
                     b.Property<string>("LevelData")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("Type")
+                    b.Property<string>("LevelType")
                         .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
+
+                    b.Property<int>("WorkshopItemId")
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
@@ -65,10 +58,8 @@ namespace TuringMachinesAPI.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                    b.Property<int>("WorkshopItemId")
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
@@ -135,14 +126,20 @@ namespace TuringMachinesAPI.Migrations
                     b.Property<int>("AuthorId")
                         .HasColumnType("integer");
 
-                    b.Property<int>("ItemTypeId")
-                        .HasColumnType("integer");
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<double>("Rating")
                         .HasColumnType("double precision");
 
                     b.PrimitiveCollection<int[]>("Subscribers")
-                        .IsRequired()
                         .HasColumnType("integer[]");
 
                     b.Property<string>("Type")

@@ -2,22 +2,14 @@
 
 namespace TuringMachinesAPI.Dtos
 {
-    public class Level
+    public class Level : WorkshopItem
     {
         [Required]
-        public int Id { get; set; }
-
-        [Required]
-        [StringLength(100)]
-        public string Name { get; set; } = "";
-
-        [Required]
-        [StringLength(250)]
-        public string Description { get; set; } = "";
+        public int LevelId { get; set; }
 
         [Required]
         [StringLength(30)]
-        public string Type { get; set; } = "Workshop";
+        public string LevelType { get; set; } = "Workshop";
 
         [Required]
         public string LevelData { get; set; } = "";

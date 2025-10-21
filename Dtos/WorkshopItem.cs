@@ -8,10 +8,15 @@ namespace TuringMachinesAPI.Dtos
         public int Id { get; set; }
 
         [Required]
-        public int ItemTypeId { get; set; }
+        [StringLength(100)]
+        public string Name { get; set; } = "";
 
         [Required]
-        public Player Author { get; set; }
+        [StringLength(250)]
+        public string Description { get; set; } = "";
+
+        [Required]
+        public string Author { get; set; }
 
         [Required]
         [StringLength(30)]
@@ -20,6 +25,6 @@ namespace TuringMachinesAPI.Dtos
         [Required]
         public double Rating { get; set; } = 0.0;
 
-        public IEnumerable<Player>? Subscribers { get; set; }
+        public int Subscribers { get; set; }
     }
 }

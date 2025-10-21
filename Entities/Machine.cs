@@ -10,11 +10,7 @@ namespace TuringMachinesAPI.Entities
         public int Id { get; set; }
 
         [Required]
-        [StringLength(100)]
-        public string Name { get; set; } = "";
-
-        [Required]
-        public List<string> Alphabet = new List<string>();
+        public int WorkshopItemId { get; set; }
 
         [Required]
         public string MachineData { get; set; } = "";

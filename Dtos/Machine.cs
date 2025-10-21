@@ -2,17 +2,10 @@
 
 namespace TuringMachinesAPI.Dtos
 {
-    public class Machine
+    public class Machine : WorkshopItem
     {
         [Required]
-        public int Id { get; set; }
-
-        [Required]
-        [StringLength(100)]
-        public string Name { get; set; } = "";
-
-        [Required]
-        public List<string> Alphabet = new List<string>();
+        public int MachineId { get; set; }
 
         [Required]
         public string MachineData { get; set; } = "";
