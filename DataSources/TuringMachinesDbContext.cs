@@ -12,6 +12,9 @@ namespace TuringMachinesAPI.DataSources
 
         public virtual DbSet<Level> Levels => Set<Level>();
         public virtual DbSet<Machine> Machines => Set<Machine>();
-        // public virtual DbSet<UserEntity> Users => Set<UserEntity>();
+        public virtual DbSet<Entities.Player> Players => Set<Entities.Player>();
+        public virtual DbSet<Entities.WorkshopItem> WorkshopItems => Set<Entities.WorkshopItem>();
+        public virtual DbSet<Entities.Review> Reviews => Set<Entities.Review>();
+
     }
 }

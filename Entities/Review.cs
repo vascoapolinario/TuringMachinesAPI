@@ -3,21 +3,21 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace TuringMachinesAPI.Entities
 {
-    [Table("Players")]
-    public class Player
+    [Table("Reviews")]
+    public class Review
     {
         [Key]
         public int Id { get; set; }
 
         [Required]
-        [StringLength(50)]
-        public string Username { get; set; } = "";
+        public int UserId { get; set; }
 
         [Required]
-        [StringLength(50)]
-        public string Role { get; set; } = "User";
+        public int WorkshopItemId { get; set; }
 
         [Required]
-        public string? Password { get; set; }
+
+        public int Rating { get; set; }
+
     }
 }
