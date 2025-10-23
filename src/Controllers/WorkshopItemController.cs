@@ -146,5 +146,27 @@ namespace TuringMachinesAPI.Controllers
                 return _service.IsUserSubscribed(UserId, WorkshopItemId);
             }
         }
+
+        [Authorize]
+        [HttpDelete("{WorkshopItemId:int}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+        public IActionResult Delete(int WorkshopItemId)
+        {
+            int UserId = int.Parse(User.FindFirst("id")!.Value);
+            var item = _service.GetById(WorkshopItemId, UserId);
+            if (item is null)
+            {
+                return NotFound($"Workshop item with ID {WorkshopItemId} not found.");
+            }
+            bool deleted = _service.DeleteWorkshopItem(WorkshopItemId, UserId);
+            if (!deleted)
+            {
+                return Forbid();
+            }
+            return Ok();
+        }
     }
 }

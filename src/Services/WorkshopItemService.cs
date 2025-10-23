@@ -381,5 +381,19 @@ namespace TuringMachinesAPI.Services
             }
             return review.Rating;
         }
+
+        public bool DeleteWorkshopItem(int workshopItemId, int userId)
+        {
+            if (!db.Players.Any(p => p.Id == userId && p.Role == "Admin") &&
+                !db.WorkshopItems.Any(wi => wi.Id == workshopItemId && wi.AuthorId == userId))
+            {
+                return false;
+            }
+
+            var workshopItem = db.WorkshopItems.FirstOrDefault(wi => wi.Id == workshopItemId);
+            db.WorkshopItems.Remove(workshopItem!);
+            db.SaveChanges();
+            return true;
+        }
     }
 }

@@ -11,8 +11,8 @@ using TuringMachinesAPI.DataSources;
 namespace TuringMachinesAPI.Migrations
 {
     [DbContext(typeof(TuringMachinesDbContext))]
-    [Migration("20251023161627_FurtherRefactoringToWorkshopItems")]
-    partial class FurtherRefactoringToWorkshopItems
+    [Migration("20251023200510_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
