@@ -2,7 +2,7 @@
 
 namespace TuringMachinesAPI.Dtos
 {
-    public class Machine : WorkshopItem
+    public class MachineWorkshopItem : WorkshopItem
     {
         [Required]
         public int MachineId { get; set; }

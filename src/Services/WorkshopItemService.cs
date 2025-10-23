@@ -27,7 +27,7 @@ namespace TuringMachinesAPI.Services
                     Description = wi.Description,
                     AuthorId = wi.AuthorId,
                     Rating = wi.Rating,
-                    Subscribers = null
+                    Subscribers = wi.Subscribers
                 })
                 .ToList();
 
@@ -46,7 +46,7 @@ namespace TuringMachinesAPI.Services
                         .FirstOrDefault(l => l.WorkshopItemId == i.Id);
                     if (level != null)
                     {
-                        yield return new Dtos.Level
+                        yield return new Dtos.LevelWorkshopItem
                         {
                             Id = i.Id,
                             LevelId = level.Id,
@@ -73,7 +73,7 @@ namespace TuringMachinesAPI.Services
                         .FirstOrDefault(m => m.WorkshopItemId == i.Id);
                     if (machine != null)
                     {
-                        yield return new Dtos.Machine
+                        yield return new Dtos.MachineWorkshopItem
                         {
                             Id = i.Id,
                             MachineId = machine.Id,
@@ -113,7 +113,7 @@ namespace TuringMachinesAPI.Services
                     .AsNoTracking()
                     .FirstOrDefault(l => l.WorkshopItemId == entity.Id);
 
-                return new Dtos.Level
+                return new Dtos.LevelWorkshopItem
                 {
                     Id = entity.Id,
                     LevelId = level?.Id ?? 0,
@@ -132,7 +132,7 @@ namespace TuringMachinesAPI.Services
                 var machine = db.Machines
                     .AsNoTracking()
                     .FirstOrDefault(m => m.WorkshopItemId == entity.Id);
-                return new Dtos.Machine
+                return new Dtos.MachineWorkshopItem
                 {
                     Id = entity.Id,
                     MachineId = machine?.Id ?? 0,
@@ -186,7 +186,7 @@ namespace TuringMachinesAPI.Services
 
             if (type == "Level")
             {
-                var LevelItem = new Entities.Level
+                var LevelItem = new Entities.LevelWorkshopItem
                 {
                     WorkshopItemId = newItem.Id,
                     LevelType = "Workshop",
@@ -195,7 +195,7 @@ namespace TuringMachinesAPI.Services
                 db.Levels.Add(LevelItem);
                 db.SaveChanges();
 
-                return new Dtos.Level
+                return new Dtos.LevelWorkshopItem
                 {
                     Id = newItem.Id,
                     LevelId = LevelItem.Id,
@@ -211,7 +211,7 @@ namespace TuringMachinesAPI.Services
             }
             else if (type == "Macine")
             {
-                var MachineItem = new Entities.Machine
+                var MachineItem = new Entities.MachineWorkshopItem
                 {
                     WorkshopItemId = newItem.Id,
                     MachineData = jsonElement.GetProperty("machineData").GetRawText()
@@ -219,7 +219,7 @@ namespace TuringMachinesAPI.Services
                 db.Machines.Add(MachineItem);
                 db.SaveChanges();
 
-                return new Dtos.Machine
+                return new Dtos.MachineWorkshopItem
                 {
                     Id = newItem.Id,
                     MachineId = MachineItem.Id,

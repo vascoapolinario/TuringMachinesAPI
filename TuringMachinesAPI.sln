@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.14.36221.1 d17.14
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TuringMachinesAPI", "TuringMachinesAPI.csproj", "{6179AF4C-F436-4328-9E10-F86668C20DAB}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TuringMachinesAPI", "src\TuringMachinesAPI.csproj", "{6179AF4C-F436-4328-9E10-F86668C20DAB}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

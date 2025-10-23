@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace TuringMachinesAPI.Entities
 {
     [Table("Machines")]
-    public class Machine
+    public class MachineWorkshopItem
     {
         [Key]
         public int Id { get; set; }

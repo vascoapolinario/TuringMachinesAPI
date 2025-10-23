@@ -86,7 +86,8 @@ namespace TuringMachinesAPI.Services
 
         public string GenerateJwtToken(Player player)
         {
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]));
+            byte[] keyBytes = _config.GetRequiredSection("Jwt:Key").Get<byte[]>()!;
+            var key = new SymmetricSecurityKey(keyBytes);
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
             var claims = new[]

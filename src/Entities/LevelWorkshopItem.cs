@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations;
 namespace TuringMachinesAPI.Entities
 {
     [Table("Levels")]
-    public class Level
+    public class LevelWorkshopItem
     {
         [Key]
         public int Id { get; set; }
