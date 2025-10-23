@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using TuringMachinesAPI.Enums;
 
 namespace TuringMachinesAPI.Entities
 {
@@ -22,7 +23,7 @@ namespace TuringMachinesAPI.Entities
 
         [Required]
         [StringLength(30)]
-        public string Type { get; set; } = "";
+        public WorkshopItemType Type { get; set; } = WorkshopItemType.Undefined;
 
         [Required]
         public double Rating { get; set; } = 0.0;   

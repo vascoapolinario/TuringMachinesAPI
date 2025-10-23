@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using TuringMachinesAPI.Entities;
+using TuringMachinesAPI.Enums;
 
 namespace TuringMachinesAPI.DataSources
 {
@@ -8,6 +9,17 @@ namespace TuringMachinesAPI.DataSources
         public TuringMachinesDbContext(DbContextOptions<TuringMachinesDbContext> options)
             : base(options)
         {
+        }
+
+        protected override void OnModelCreating(ModelBuilder builder)
+        {
+            builder.Entity<LevelWorkshopItem>()
+                .Property(p => p.Mode)
+                .HasConversion(v => v.ToString(), v => Enum.Parse<LevelMode>(v));
+
+            builder.Entity<WorkshopItem>()
+                .Property(p => p.Type)
+                .HasConversion(v => v.ToString(), v => Enum.Parse<WorkshopItemType>(v));
         }
 
         public virtual DbSet<LevelWorkshopItem> Levels => Set<LevelWorkshopItem>();

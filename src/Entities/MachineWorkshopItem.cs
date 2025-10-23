@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace TuringMachinesAPI.Entities
 {
-    [Table("Machines")]
+    [Table("MachineWorkshopItems")]
     public class MachineWorkshopItem
     {
         [Key]
@@ -13,6 +13,14 @@ namespace TuringMachinesAPI.Entities
         public int WorkshopItemId { get; set; }
 
         [Required]
-        public string MachineData { get; set; } = "";
+        public string AlphabetJson { get; set; } = "[_]";
+
+        [Required]
+
+        public string NodesJson { get; set; } = "[]";
+
+        [Required]
+
+        public string ConnectionsJson { get; set; } = "[]";
     }
 }

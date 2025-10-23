@@ -8,6 +8,12 @@ namespace TuringMachinesAPI.Dtos
         public int MachineId { get; set; }
 
         [Required]
-        public string MachineData { get; set; } = "";
+        public string AlphabetJson { get; set; } = "[_]";
+
+        [Required]
+        public string NodesJson { get; set; } = "[]";
+
+        [Required]
+        public string ConnectionsJson { get; set; } = "[]";
     }
 }

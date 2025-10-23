@@ -3,6 +3,7 @@ using System.Text.Json;
 using TuringMachinesAPI.DataSources;
 using TuringMachinesAPI.Dtos;
 using TuringMachinesAPI.Entities;
+using TuringMachinesAPI.Enums;
 
 namespace TuringMachinesAPI.Services
 {
@@ -15,35 +16,28 @@ namespace TuringMachinesAPI.Services
             db = context;
         }
 
-        public IEnumerable<object> GetAll(string? NameFilter)
+        public IEnumerable<object> GetAll(string? NameFilter, int UserId)
         {
-            var Items = db.WorkshopItems
-                .AsNoTracking()
-                .Select(wi => new Entities.WorkshopItem
-                {
-                    Id = wi.Id,
-                    Name = wi.Name,
-                    Type = wi.Type,
-                    Description = wi.Description,
-                    AuthorId = wi.AuthorId,
-                    Rating = wi.Rating,
-                    Subscribers = wi.Subscribers
-                })
-                .ToList();
+            var query = db.WorkshopItems.AsNoTracking();
 
             if (!string.IsNullOrWhiteSpace(NameFilter))
+                query = query.Where(wi => wi.Name.ToLower().Contains(NameFilter.ToLower()));
+
+            var items = query.ToList();
+
+            foreach (var i in items)
             {
-                Items = Items
-                    .Where(wi => wi.Name.Contains(NameFilter, StringComparison.OrdinalIgnoreCase))
-                    .ToList();
-            }
-            foreach (Entities.WorkshopItem i in Items)
-            {
-                if (i.Type == "Level")
+                var authorName = db.Players
+                    .AsNoTracking()
+                    .Where(p => p.Id == i.AuthorId)
+                    .Select(p => p.Username)
+                    .FirstOrDefault() ?? "Unknown";
+
+                int UserRating = UserRatingForItem(UserId, i.Id) ?? 0;
+
+                if (i.Type.Equals(WorkshopItemType.Level.ToString()))
                 {
-                    var level = db.Levels
-                        .AsNoTracking()
-                        .FirstOrDefault(l => l.WorkshopItemId == i.Id);
+                    var level = db.Levels.AsNoTracking().FirstOrDefault(l => l.WorkshopItemId == i.Id);
                     if (level != null)
                     {
                         yield return new Dtos.LevelWorkshopItem
@@ -52,25 +46,26 @@ namespace TuringMachinesAPI.Services
                             LevelId = level.Id,
                             Name = i.Name,
                             Description = i.Description,
-                            Author = db.Players
-                                .AsNoTracking()
-                                .Where(p => p.Id == i.AuthorId)
-                                .Select(p => p.Username)
-                                .FirstOrDefault() ?? "Unknown",
-                            Type = i.Type,
-                            LevelType = level.LevelType,
+                            Author = authorName,
+                            Type = i.Type.ToString(),
                             Rating = i.Rating,
-                            LevelData = level.LevelData,
-                            Subscribers = i.Subscribers?.Count ?? 0
+                            Subscribers = i.Subscribers?.Count ?? 0,
+                            LevelType = level.LevelType,
+                            DetailedDescription = level.DetailedDescription,
+                            Mode = level.Mode.ToString(),
+                            AlphabetJson = level.AlphabetJson,
+                            TransformTestsJson = level.TransformTestsJson,
+                            CorrectExamplesJson = level.CorrectExamplesJson,
+                            WrongExamplesJson = level.WrongExamplesJson,
+                            UserRating = UserRating,
+                            UserIsSubscribed = IsUserSubscribed(UserId, i.Id)
                         };
                         continue;
                     }
                 }
-                else if (i.Type == "Machine")
+                else if (i.Type.Equals(WorkshopItemType.Machine.ToString()))
                 {
-                    var machine = db.Machines
-                        .AsNoTracking()
-                        .FirstOrDefault(m => m.WorkshopItemId == i.Id);
+                    var machine = db.Machines.AsNoTracking().FirstOrDefault(m => m.WorkshopItemId == i.Id);
                     if (machine != null)
                     {
                         yield return new Dtos.MachineWorkshopItem
@@ -79,172 +74,221 @@ namespace TuringMachinesAPI.Services
                             MachineId = machine.Id,
                             Name = i.Name,
                             Description = i.Description,
-                            Author = db.Players
-                                .AsNoTracking()
-                                .Where(p => p.Id == i.AuthorId)
-                                .Select(p => p.Username)
-                                .FirstOrDefault() ?? "Unknown",
-                            Type = i.Type,
+                            Author = authorName,
+                            Type = i.Type.ToString(),
                             Rating = i.Rating,
-                            MachineData = machine.MachineData,
-                            Subscribers = i.Subscribers?.Count ?? 0
+                            Subscribers = i.Subscribers?.Count ?? 0,
+                            AlphabetJson = machine.AlphabetJson,
+                            NodesJson = machine.NodesJson,
+                            ConnectionsJson = machine.ConnectionsJson,
+                            UserRating = UserRating,
+                            UserIsSubscribed = IsUserSubscribed(UserId, i.Id)
                         };
                         continue;
                     }
                 }
+
+                yield return new Dtos.WorkshopItem
+                {
+                    Id = i.Id,
+                    Name = i.Name,
+                    Description = i.Description,
+                    Author = authorName,
+                    Type = i.Type.ToString(),
+                    Rating = i.Rating,
+                    Subscribers = i.Subscribers?.Count ?? 0,
+                    UserRating = UserRating,
+                    UserIsSubscribed = IsUserSubscribed(UserId, i.Id)
+                };
             }
         }
 
-        public object? GetById(int id)
+        public object? GetById(int id, int UserId)
         {
-            var entity = db.WorkshopItems
-                .AsNoTracking()
-                .FirstOrDefault(wi => wi.Id == id);
-            if (entity is null) return null;
+            var entity = db.WorkshopItems.AsNoTracking().FirstOrDefault(wi => wi.Id == id);
+            if (entity == null)
+                return null;
+
             var authorName = db.Players
                 .AsNoTracking()
                 .Where(p => p.Id == entity.AuthorId)
                 .Select(p => p.Username)
                 .FirstOrDefault() ?? "Unknown";
-            
-            if (entity.Type == "Level")
+
+            int UserRating = UserRatingForItem(UserId, entity.Id) ?? 0;
+
+            if (entity.Type.Equals(WorkshopItemType.Level.ToString()))
             {
-                var level = db.Levels
-                    .AsNoTracking()
-                    .FirstOrDefault(l => l.WorkshopItemId == entity.Id);
+                var level = db.Levels.AsNoTracking().FirstOrDefault(l => l.WorkshopItemId == entity.Id);
+                if (level == null) return null;
 
                 return new Dtos.LevelWorkshopItem
                 {
                     Id = entity.Id,
-                    LevelId = level?.Id ?? 0,
+                    LevelId = level.Id,
                     Name = entity.Name,
                     Description = entity.Description,
                     Author = authorName,
-                    Type = entity.Type,
-                    LevelType = level?.LevelType ?? "",
+                    Type = entity.Type.ToString(),
                     Rating = entity.Rating,
-                    LevelData = level?.LevelData ?? "",
-                    Subscribers = entity.Subscribers?.Count ?? 0
+                    Subscribers = entity.Subscribers?.Count ?? 0,
+                    LevelType = level.LevelType,
+                    DetailedDescription = level.DetailedDescription,
+                    Mode = level.Mode.ToString(),
+                    AlphabetJson = level.AlphabetJson,
+                    TransformTestsJson = level.TransformTestsJson,
+                    CorrectExamplesJson = level.CorrectExamplesJson,
+                    WrongExamplesJson = level.WrongExamplesJson,
+                    UserRating = UserRating,
+                    UserIsSubscribed = IsUserSubscribed(UserId, entity.Id)
                 };
             }
-            else if (entity.Type == "Machine")
+            else if (entity.Type.Equals(WorkshopItemType.Machine.ToString()))
             {
-                var machine = db.Machines
-                    .AsNoTracking()
-                    .FirstOrDefault(m => m.WorkshopItemId == entity.Id);
+                var machine = db.Machines.AsNoTracking().FirstOrDefault(m => m.WorkshopItemId == entity.Id);
+                if (machine == null) return null;
+
                 return new Dtos.MachineWorkshopItem
                 {
                     Id = entity.Id,
-                    MachineId = machine?.Id ?? 0,
+                    MachineId = machine.Id,
                     Name = entity.Name,
                     Description = entity.Description,
                     Author = authorName,
-                    Type = entity.Type,
+                    Type = entity.Type.ToString(),
                     Rating = entity.Rating,
-                    MachineData = machine?.MachineData ?? "",
-                    Subscribers = entity.Subscribers?.Count ?? 0
+                    Subscribers = entity.Subscribers?.Count ?? 0,
+                    AlphabetJson = machine.AlphabetJson,
+                    NodesJson = machine.NodesJson,
+                    ConnectionsJson = machine.ConnectionsJson,
+                    UserRating = UserRating,
+                    UserIsSubscribed = IsUserSubscribed(UserId, entity.Id)
                 };
             }
-            else
+
+            return new Dtos.WorkshopItem
             {
-                return new Dtos.WorkshopItem
-                {
-                    Id = entity.Id,
-                    Name = entity.Name,
-                    Description = entity.Description,
-                    Author = authorName,
-                    Type = entity.Type,
-                    Rating = entity.Rating,
-                    Subscribers = entity.Subscribers?.Count ?? 0
-                };
-            }
+                Id = entity.Id,
+                Name = entity.Name,
+                Description = entity.Description,
+                Author = authorName,
+                Type = entity.Type.ToString(),
+                Rating = entity.Rating,
+                Subscribers = entity.Subscribers?.Count ?? 0,
+                UserRating = UserRating,
+                UserIsSubscribed = IsUserSubscribed(UserId, entity.Id)
+            };
         }
 
-        public Dtos.WorkshopItem? AddWorkshopItem(JsonElement jsonElement)
+        public Dtos.WorkshopItem? AddWorkshopItem(JsonElement json, int UserId)
         {
-            if (jsonElement.ValueKind != JsonValueKind.Object)
+            if (json.ValueKind != JsonValueKind.Object)
                 return null;
-            var name = jsonElement.GetProperty("name").GetString() ?? "";
-            var description = jsonElement.GetProperty("description").GetString() ?? "";
-            var authorName = jsonElement.GetProperty("authorName").GetString();
-            var type = jsonElement.GetProperty("type").GetString() ?? "";
+
+            var name = json.GetProperty("name").GetString() ?? "";
+            var description = json.GetProperty("description").GetString() ?? "";
+            var authorName = db.Players
+                .AsNoTracking()
+                .Where(p => p.Id == UserId)
+                .Select(p => p.Username)
+                .FirstOrDefault() ?? "Unknown";
+            var type = json.GetProperty("type").GetString() ?? "";
+
+            var authorId = db.Players
+                .AsNoTracking()
+                .Where(p => p.Username == authorName)
+                .Select(p => p.Id)
+                .FirstOrDefault();
+
             var newItem = new Entities.WorkshopItem
             {
                 Name = name,
                 Description = description,
-                AuthorId = db.Players
-                    .AsNoTracking()
-                    .Where(p => p.Username == authorName)
-                    .Select(p => p.Id)
-                    .FirstOrDefault(),
-                Type = type,
+                Type = Enum.TryParse(type, true, out WorkshopItemType parsedType) ? parsedType : WorkshopItemType.Undefined,
+                AuthorId = authorId,
                 Rating = 0.0,
                 Subscribers = null
             };
+
             db.WorkshopItems.Add(newItem);
             db.SaveChanges();
 
-            if (type == "Level")
+            if (type == WorkshopItemType.Level.ToString())
             {
-                var LevelItem = new Entities.LevelWorkshopItem
+                var level = new Entities.LevelWorkshopItem
                 {
                     WorkshopItemId = newItem.Id,
                     LevelType = "Workshop",
-                    LevelData = jsonElement.GetProperty("levelData").GetRawText()
+                    DetailedDescription = json.TryGetProperty("detailedDescription", out var dd) ? dd.GetString() ?? "" : "",
+                    Objective = json.TryGetProperty("objective", out var ob) ? ob.GetString() ?? "" : "",
+                    Mode = Enum.TryParse(json.TryGetProperty("mode", out var modeProp) ? modeProp.GetString() : "accept", true, out LevelMode modeVal) ? modeVal : LevelMode.accept,
+                    AlphabetJson = json.TryGetProperty("alphabetJson", out var a) ? a.GetRawText() : "[_]",
+                    TransformTestsJson = json.TryGetProperty("transformTestsJson", out var t) ? t.GetRawText() : null,
+                    CorrectExamplesJson = json.TryGetProperty("correctExamplesJson", out var c) ? c.GetRawText() : null,
+                    WrongExamplesJson = json.TryGetProperty("wrongExamplesJson", out var w) ? w.GetRawText() : null
                 };
-                db.Levels.Add(LevelItem);
+
+                db.Levels.Add(level);
                 db.SaveChanges();
 
                 return new Dtos.LevelWorkshopItem
                 {
                     Id = newItem.Id,
-                    LevelId = LevelItem.Id,
-                    Name = newItem.Name,
-                    Description = newItem.Description,
+                    LevelId = level.Id,
+                    Name = name,
+                    Description = description,
                     Author = authorName ?? "Unknown",
-                    Type = newItem.Type,
-                    LevelType = LevelItem.LevelType,
-                    Rating = newItem.Rating,
-                    LevelData = LevelItem.LevelData,
-                    Subscribers = 0
+                    Type = type,
+                    Rating = 0.0,
+                    Subscribers = 0,
+                    LevelType = level.LevelType,
+                    DetailedDescription = level.DetailedDescription,
+                    Mode = level.Mode.ToString(),
+                    AlphabetJson = level.AlphabetJson,
+                    TransformTestsJson = level.TransformTestsJson,
+                    CorrectExamplesJson = level.CorrectExamplesJson,
+                    WrongExamplesJson = level.WrongExamplesJson
                 };
             }
-            else if (type == "Macine")
+            else if (type == WorkshopItemType.Machine.ToString())
             {
-                var MachineItem = new Entities.MachineWorkshopItem
+                var machine = new Entities.MachineWorkshopItem
                 {
                     WorkshopItemId = newItem.Id,
-                    MachineData = jsonElement.GetProperty("machineData").GetRawText()
+                    AlphabetJson = json.TryGetProperty("alphabetJson", out var a) ? a.GetRawText() : "[_]",
+                    NodesJson = json.TryGetProperty("nodesJson", out var n) ? n.GetRawText() : "[]",
+                    ConnectionsJson = json.TryGetProperty("connectionsJson", out var c) ? c.GetRawText() : "[]"
                 };
-                db.Machines.Add(MachineItem);
+
+                db.Machines.Add(machine);
                 db.SaveChanges();
 
                 return new Dtos.MachineWorkshopItem
                 {
                     Id = newItem.Id,
-                    MachineId = MachineItem.Id,
-                    Name = newItem.Name,
-                    Description = newItem.Description,
+                    MachineId = machine.Id,
+                    Name = name,
+                    Description = description,
                     Author = authorName ?? "Unknown",
-                    Type = newItem.Type,
-                    Rating = newItem.Rating,
-                    MachineData = MachineItem.MachineData,
-                    Subscribers = 0
+                    Type = type,
+                    Rating = 0.0,
+                    Subscribers = 0,
+                    AlphabetJson = machine.AlphabetJson,
+                    NodesJson = machine.NodesJson,
+                    ConnectionsJson = machine.ConnectionsJson
                 };
             }
-            else
+
+            return new Dtos.WorkshopItem
             {
-                return new Dtos.WorkshopItem
-                {
-                    Id = newItem.Id,
-                    Name = newItem.Name,
-                    Description = newItem.Description,
-                    Author = authorName ?? "Unknown",
-                    Type = newItem.Type,
-                    Rating = newItem.Rating,
-                    Subscribers = 0
-                };
-            }
+                Id = newItem.Id,
+                Name = name,
+                Description = description,
+                Author = authorName ?? "Unknown",
+                Type = type,
+                Rating = 0.0,
+                Subscribers = 0
+            };
         }
 
         public bool RateWorkshopItem(int userId, int ItemId, int Rating)

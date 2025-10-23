@@ -16,14 +16,20 @@ namespace TuringMachinesAPI.Dtos
         public string Description { get; set; } = "";
 
         [Required]
-        public string Author { get; set; }
+        public string Author { get; set; } = "";
 
         [Required]
         [StringLength(30)]
-        public string Type { get; set; } = "";
+        public string Type { get; set; } = "Undefined";
 
         [Required]
         public double Rating { get; set; } = 0.0;
+
+        [Required]
+        public int UserRating { get; set; } = 0;
+
+        [Required]
+        public bool UserIsSubscribed { get; set; } = false;
 
         public int Subscribers { get; set; }
     }
