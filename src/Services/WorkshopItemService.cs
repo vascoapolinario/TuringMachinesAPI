@@ -394,6 +394,28 @@ namespace TuringMachinesAPI.Services
             }
 
             var workshopItem = db.WorkshopItems.FirstOrDefault(wi => wi.Id == workshopItemId);
+            if (workshopItem == null)
+            {
+                return false;
+            }
+            if (workshopItem.Type.Equals(WorkshopItemType.Level))
+            {
+                var level = db.Levels.FirstOrDefault(l => l.WorkshopItemId == workshopItemId);
+                if (level != null)
+                {
+                    db.Levels.Remove(level);
+                }
+            }
+            else if (workshopItem.Type.Equals(WorkshopItemType.Machine))
+            {
+                var machine = db.Machines.FirstOrDefault(m => m.WorkshopItemId == workshopItemId);
+                if (machine != null)
+                {
+                    db.Machines.Remove(machine);
+                }
+            }
+            var reviews = db.Reviews.Where(r => r.WorkshopItemId == workshopItemId).ToList();
+            db.Reviews.RemoveRange(reviews);
             db.WorkshopItems.Remove(workshopItem!);
             db.SaveChanges();
             return true;
