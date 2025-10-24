@@ -35,7 +35,7 @@ namespace TuringMachinesAPI.Services
 
                 int UserRating = UserRatingForItem(UserId, i.Id) ?? 0;
 
-                if (i.Type.Equals(WorkshopItemType.Level.ToString()))
+                if (i.Type.Equals(WorkshopItemType.Level))
                 {
                     var level = db.Levels.AsNoTracking().FirstOrDefault(l => l.WorkshopItemId == i.Id);
                     if (level != null)
@@ -63,7 +63,7 @@ namespace TuringMachinesAPI.Services
                         continue;
                     }
                 }
-                else if (i.Type.Equals(WorkshopItemType.Machine.ToString()))
+                else if (i.Type.Equals(WorkshopItemType.Machine))
                 {
                     var machine = db.Machines.AsNoTracking().FirstOrDefault(m => m.WorkshopItemId == i.Id);
                     if (machine != null)
@@ -117,7 +117,8 @@ namespace TuringMachinesAPI.Services
 
             int UserRating = UserRatingForItem(UserId, entity.Id) ?? 0;
 
-            if (entity.Type.Equals(WorkshopItemType.Level.ToString()))
+
+            if (entity.Type.Equals(WorkshopItemType.Level))
             {
                 var level = db.Levels.AsNoTracking().FirstOrDefault(l => l.WorkshopItemId == entity.Id);
                 if (level == null) return null;
@@ -143,7 +144,9 @@ namespace TuringMachinesAPI.Services
                     UserIsSubscribed = IsUserSubscribed(UserId, entity.Id)
                 };
             }
-            else if (entity.Type.Equals(WorkshopItemType.Machine.ToString()))
+
+
+            else if (entity.Type.Equals(WorkshopItemType.Machine))
             {
                 var machine = db.Machines.AsNoTracking().FirstOrDefault(m => m.WorkshopItemId == entity.Id);
                 if (machine == null) return null;
