@@ -28,5 +28,7 @@ namespace TuringMachinesAPI.DataSources
         public virtual DbSet<Entities.WorkshopItem> WorkshopItems => Set<Entities.WorkshopItem>();
         public virtual DbSet<Entities.Review> Reviews => Set<Entities.Review>();
 
+        public virtual DbSet<Entities.Lobby> Lobbies => Set<Entities.Lobby>();
+
     }
 }

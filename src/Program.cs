@@ -1,10 +1,11 @@
-using Microsoft.EntityFrameworkCore;
-using TuringMachinesAPI.DataSources;
-using TuringMachinesAPI.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using System.Threading.RateLimiting;
 using Microsoft.OpenApi.Models;
+using System.Threading.RateLimiting;
+using TuringMachinesAPI.DataSources;
+using TuringMachinesAPI.Hubs;
+using TuringMachinesAPI.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,6 +26,23 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(jwtKey.Get<byte[]>())
+        };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+
+                if (!string.IsNullOrEmpty(accessToken) &&
+                    (path.StartsWithSegments("/hubs/lobby")))
+                {
+                    context.Token = accessToken;
+                }
+
+                return Task.CompletedTask;
+            }
         };
     });
 
@@ -88,8 +106,11 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddDbContext<TuringMachinesDbContext>(o =>
     o.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddSignalR();
 builder.Services.AddSingleton<ICryptoService, AesCryptoService>();
 builder.Services.AddScoped<WorkshopItemService>();
+builder.Services.AddScoped<LobbyService>();
 builder.Services.AddScoped<PlayerService>();
 
 builder.Services.AddControllers();
@@ -130,5 +151,6 @@ app.UseAuthentication();
 app.UseRateLimiter();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<LobbyHub>("/hubs/lobby");
 
 app.Run();
