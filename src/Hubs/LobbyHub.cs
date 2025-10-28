@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.SignalR;
+using Newtonsoft.Json.Linq;
+using System.Text.Json;
 using TuringMachinesAPI.Services;
 
 namespace TuringMachinesAPI.Hubs
@@ -76,6 +78,94 @@ namespace TuringMachinesAPI.Hubs
         public async Task LeaveLobbyGroup(string code)
         {
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, code);
+        }
+
+
+        /// <summary>
+        /// Host broadcasts the entire Turing machine state (nodes, connections, etc.)
+        /// </summary>
+        public async Task SyncEnvironment(object payload)
+        {
+            Console.WriteLine($"[Hub] SyncEnvironment RAW payload: {payload?.GetType()}");
+
+            var json = payload?.ToString();
+            if (string.IsNullOrEmpty(json))
+            {
+                Console.WriteLine("[Hub] No payload data.");
+                return;
+            }
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            string lobbyCode = root.GetProperty("lobbyCode").GetString();
+            var state = root.GetProperty("state");
+
+            await Clients.Group(lobbyCode).SendAsync("EnvironmentSynced", new
+            {
+                lobbyCode,
+                state
+            });
+
+            Console.WriteLine($"[Lobby {lobbyCode}] Environment synced (broadcasted).");
+        }
+
+        /// <summary>
+        /// Client proposes to add a node (only host should handle this).
+        /// </summary>
+        public async Task ProposeNode(object payload)
+        {
+            var data = payload as JObject;
+            if (data == null) return;
+
+            string lobbyCode = data["lobbyCode"]?.ToString() ?? "";
+            var pos = data["pos"];
+            bool isEnd = data["isEnd"]?.ToObject<bool>() ?? false;
+
+            var lobbyDto = _lobbyService.GetByCode(lobbyCode);
+            if (lobbyDto == null)
+            {
+                Console.WriteLine($"[ProposeNode] Lobby {lobbyCode} not found");
+                return;
+            }
+
+            // Notify only the host (filter by username)
+            await Clients.Group(lobbyCode).SendAsync("NodeProposed", new
+            {
+                lobbyCode,
+                pos,
+                isEnd,
+                proposer = Context.User?.Identity?.Name
+            });
+
+            Console.WriteLine($"[Lobby {lobbyCode}] NodeProposed from {Context.User?.Identity?.Name}");
+        }
+
+        /// <summary>
+        /// Client proposes to delete a node or connection (host should handle).
+        /// </summary>
+        public async Task ProposeDelete(object payload)
+        {
+            var data = payload as JObject;
+            if (data == null) return;
+
+            string lobbyCode = data["lobbyCode"]?.ToString() ?? "";
+            var target = data["target"];
+
+            var lobbyDto = _lobbyService.GetByCode(lobbyCode);
+            if (lobbyDto == null)
+            {
+                Console.WriteLine($"[ProposeDelete] Lobby {lobbyCode} not found");
+                return;
+            }
+
+            // Notify the host of this lobby
+            await Clients.Group(lobbyCode).SendAsync("DeleteProposed", new
+            {
+                lobbyCode,
+                target,
+                proposer = Context.User?.Identity?.Name
+            });
+
+            Console.WriteLine($"[Lobby {lobbyCode}] DeleteProposed from {Context.User?.Identity?.Name}");
         }
     }
 }
