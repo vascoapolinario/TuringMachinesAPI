@@ -113,30 +113,66 @@ namespace TuringMachinesAPI.Hubs
         /// </summary>
         public async Task ProposeNode(object payload)
         {
-            var data = payload as JObject;
-            if (data == null) return;
-
-            string lobbyCode = data["lobbyCode"]?.ToString() ?? "";
-            var pos = data["pos"];
-            bool isEnd = data["isEnd"]?.ToObject<bool>() ?? false;
-
-            var lobbyDto = _lobbyService.GetByCode(lobbyCode);
-            if (lobbyDto == null)
+            try
             {
-                Console.WriteLine($"[ProposeNode] Lobby {lobbyCode} not found");
-                return;
+                Console.WriteLine($"[ProposeNode] RAW payload type: {payload?.GetType()}");
+
+                JObject data = null;
+
+                switch (payload)
+                {
+                    case JObject jObj:
+                        data = jObj;
+                        break;
+                    case JArray jArr when jArr.Count > 0:
+                        data = jArr[0] as JObject;
+                        break;
+                    default:
+                        var json = payload?.ToString();
+                        if (!string.IsNullOrEmpty(json))
+                        {
+                            if (json.TrimStart().StartsWith("["))
+                                data = JArray.Parse(json).FirstOrDefault() as JObject;
+                            else
+                                data = JObject.Parse(json);
+                        }
+                        break;
+                }
+
+                if (data == null)
+                {
+                    Console.WriteLine("[ProposeNode] Invalid payload format");
+                    return;
+                }
+
+                string lobbyCode = data["lobbyCode"]?.ToString() ?? "";
+                var posToken = data["pos"];
+                float x = posToken?["x"]?.ToObject<float>() ?? 0f;
+                float y = posToken?["y"]?.ToObject<float>() ?? 0f;
+                bool isEnd = data["isEnd"]?.ToObject<bool>() ?? false;
+
+                var lobbyDto = _lobbyService.GetByCode(lobbyCode);
+                if (lobbyDto == null)
+                {
+                    Console.WriteLine($"[ProposeNode] Lobby {lobbyCode} not found");
+                    return;
+                }
+
+                await Clients.Group(lobbyCode).SendAsync("NodeProposed", new
+                {
+                    lobbyCode,
+                    x,
+                    y,
+                    isEnd,
+                    proposer = Context.User?.Identity?.Name ?? "Unknown"
+                });
+
+                Console.WriteLine($"[Lobby {lobbyCode}] NodeProposed from {Context.User?.Identity?.Name} at ({x}, {y})");
             }
-
-            // Notify only the host (filter by username)
-            await Clients.Group(lobbyCode).SendAsync("NodeProposed", new
+            catch (Exception ex)
             {
-                lobbyCode,
-                pos,
-                isEnd,
-                proposer = Context.User?.Identity?.Name
-            });
-
-            Console.WriteLine($"[Lobby {lobbyCode}] NodeProposed from {Context.User?.Identity?.Name}");
+                Console.WriteLine($"[ProposeNode] ERROR: {ex.Message}");
+            }
         }
 
         /// <summary>
