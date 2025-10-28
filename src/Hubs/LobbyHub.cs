@@ -175,33 +175,177 @@ namespace TuringMachinesAPI.Hubs
             }
         }
 
-        /// <summary>
-        /// Client proposes to delete a node or connection (host should handle).
-        /// </summary>
+
+        public async Task ProposeConnection(object payload)
+        {
+            try
+            {
+                Console.WriteLine($"[ProposeConnection] RAW payload type: {payload?.GetType()}");
+
+                JObject data = null;
+
+                switch (payload)
+                {
+                    case JObject jObj:
+                        data = jObj;
+                        break;
+                    case JArray jArr when jArr.Count > 0:
+                        data = jArr[0] as JObject;
+                        break;
+                    default:
+                        var json = payload?.ToString();
+                        if (!string.IsNullOrEmpty(json))
+                        {
+                            if (json.TrimStart().StartsWith("["))
+                                data = JArray.Parse(json).FirstOrDefault() as JObject;
+                            else
+                                data = JObject.Parse(json);
+                        }
+                        break;
+                }
+
+                if (data == null)
+                {
+                    Console.WriteLine("[ProposeConnection] Invalid payload format");
+                    return;
+                }
+
+                string lobbyCode = data["lobbyCode"]?.ToString() ?? "";
+                int startId = data["startId"]?.ToObject<int>() ?? -1;
+                int endId = data["endId"]?.ToObject<int>() ?? -1;
+
+                var lobby = _lobbyService.GetByCode(lobbyCode);
+                if (lobby == null)
+                {
+                    Console.WriteLine($"[ProposeConnection] Lobby {lobbyCode} not found");
+                    return;
+                }
+
+                var read = data["read"]?.ToObject<List<string>>() ?? new List<string>();
+                var write = data["write"]?.ToObject<List<string>>() ?? new List<string>();
+                var move = data["move"]?.ToObject<List<string>>() ?? new List<string>();
+                var read2 = data["read2"]?.ToObject<List<string>>() ?? new List<string>();
+                var write2 = data["write2"]?.ToObject<List<string>>() ?? new List<string>();
+                var move2 = data["move2"]?.ToObject<List<string>>() ?? new List<string>();
+
+                await Clients.Group(lobbyCode).SendAsync("ConnectionProposed", new
+                {
+                    lobbyCode,
+                    startId,
+                    endId,
+                    read,
+                    write,
+                    move,
+                    read2,
+                    write2,
+                    move2,
+                    proposer = Context.User?.Identity?.Name ?? "Unknown"
+                });
+
+                Console.WriteLine($"[Lobby {lobbyCode}] ConnectionProposed {startId}->{endId} from {Context.User?.Identity?.Name}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ProposeConnection] ERROR: {ex.Message}");
+            }
+        }
+
         public async Task ProposeDelete(object payload)
         {
-            var data = payload as JObject;
-            if (data == null) return;
-
-            string lobbyCode = data["lobbyCode"]?.ToString() ?? "";
-            var target = data["target"];
-
-            var lobbyDto = _lobbyService.GetByCode(lobbyCode);
-            if (lobbyDto == null)
+            try
             {
-                Console.WriteLine($"[ProposeDelete] Lobby {lobbyCode} not found");
-                return;
+                Console.WriteLine($"[ProposeDelete] RAW payload type: {payload?.GetType()}");
+
+                JObject data = null;
+
+                switch (payload)
+                {
+                    case JObject jObj:
+                        data = jObj;
+                        break;
+                    case JArray jArr when jArr.Count > 0:
+                        data = jArr[0] as JObject;
+                        break;
+                    default:
+                        var json = payload?.ToString();
+                        if (!string.IsNullOrEmpty(json))
+                        {
+                            if (json.TrimStart().StartsWith("["))
+                                data = JArray.Parse(json).FirstOrDefault() as JObject;
+                            else
+                                data = JObject.Parse(json);
+                        }
+                        break;
+                }
+
+                if (data == null)
+                {
+                    Console.WriteLine("[ProposeDelete] Invalid payload format");
+                    return;
+                }
+
+                string lobbyCode = data["lobbyCode"]?.ToString() ?? "";
+                var targetToken = data["target"];
+
+                if (targetToken == null)
+                {
+                    Console.WriteLine("[ProposeDelete] No target found");
+                    return;
+                }
+
+                string type = targetToken["type"]?.ToString() ?? "";
+
+                var target = new Dictionary<string, object?>
+                {
+                    ["type"] = type
+                };
+
+                if (type == "node")
+                {
+                    target["x"] = targetToken["x"]?.ToObject<float>() ?? 0f;
+                    target["y"] = targetToken["y"]?.ToObject<float>() ?? 0f;
+                }
+                else if (type == "connection")
+                {
+                    var start = targetToken["start"];
+                    var end = targetToken["end"];
+
+                    if (start != null && end != null)
+                    {
+                        target["start"] = new Dictionary<string, float>
+                        {
+                            ["x"] = start["x"]?.ToObject<float>() ?? 0f,
+                            ["y"] = start["y"]?.ToObject<float>() ?? 0f
+                        };
+                        target["end"] = new Dictionary<string, float>
+                        {
+                            ["x"] = end["x"]?.ToObject<float>() ?? 0f,
+                            ["y"] = end["y"]?.ToObject<float>() ?? 0f
+                        };
+                    }
+                }
+
+                var lobby = _lobbyService.GetByCode(lobbyCode);
+                if (lobby == null)
+                {
+                    Console.WriteLine($"[ProposeDelete] Lobby {lobbyCode} not found");
+                    return;
+                }
+
+                await Clients.Group(lobbyCode).SendAsync("DeleteProposed", new
+                {
+                    lobbyCode,
+                    target,
+                    proposer = Context.User?.Identity?.Name ?? "Unknown"
+                });
+
+                Console.WriteLine($"[Lobby {lobbyCode}] DeleteProposed ({type}) from {Context.User?.Identity?.Name}");
             }
-
-            // Notify the host of this lobby
-            await Clients.Group(lobbyCode).SendAsync("DeleteProposed", new
+            catch (Exception ex)
             {
-                lobbyCode,
-                target,
-                proposer = Context.User?.Identity?.Name
-            });
-
-            Console.WriteLine($"[Lobby {lobbyCode}] DeleteProposed from {Context.User?.Identity?.Name}");
+                Console.WriteLine($"[ProposeDelete] ERROR: {ex.Message}");
+            }
         }
+
     }
 }
