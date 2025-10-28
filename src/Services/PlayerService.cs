@@ -138,7 +138,5 @@ namespace TuringMachinesAPI.Services
             }
             return NonSensitivePlayers;
         }
-
-
     }
 }

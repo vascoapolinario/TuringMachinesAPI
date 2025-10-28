@@ -205,5 +205,14 @@ namespace TuringMachinesAPI.Services
             return db.Lobbies
                 .FirstOrDefault(l => l.LobbyPlayers != null && l.LobbyPlayers.Contains(playerId));
         }
+
+        public int GetPlayerIdFromName(string playerName)
+        {
+            return db.Players
+                .AsNoTracking()
+                .Where(p => p.Username.ToLower() == playerName.ToLower())
+                .Select(p => p.Id)
+                .FirstOrDefault();
+        }
     }
 }

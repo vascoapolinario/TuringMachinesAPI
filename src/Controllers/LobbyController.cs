@@ -186,5 +186,44 @@ namespace TuringMachinesAPI.Controllers
 
             return Ok(new { message = "Lobby deleted successfully." });
         }
+
+        /// <summary>
+        /// Kick a player from a lobby (host only).
+        /// </summary>
+        [Authorize]
+        [HttpPost("{code}/kick/{targetPlayerName}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+        public async Task<IActionResult> KickPlayerAsync(string code, string targetPlayerName)
+        {
+            int requesterId = int.Parse(User.FindFirst("id")!.Value);
+
+            int targetPlayerId = _service.GetPlayerIdFromName(targetPlayerName);
+
+            var lobby = _service.GetByCode(code);
+            if (lobby is null)
+                return NotFound(new { message = $"Lobby with code {code} not found." });
+
+            if (_service.GetPlayerIdFromName(lobby.HostPlayer) != requesterId)
+                return Unauthorized(new { message = "Only the host can kick players." });
+
+            if (targetPlayerId == requesterId)
+                return BadRequest(new { message = "You cannot kick yourself." });
+
+            bool removed = _service.LeaveLobby(code, targetPlayerId);
+            if (!removed)
+                return NotFound(new { message = "Player not found in this lobby." });
+
+            await _hub.Clients.Group(code).SendAsync("PlayerKicked", new
+            {
+                lobbyCode = code,
+                kickedPlayerName = targetPlayerName 
+            });
+
+            return Ok(new { message = $"Player {targetPlayerId} was kicked from lobby {code}." });
+        }
     }
 }
