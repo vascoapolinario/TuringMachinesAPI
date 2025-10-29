@@ -5,6 +5,7 @@ using System.Text;
 using TuringMachinesAPI.DataSources;
 using TuringMachinesAPI.Dtos;
 using TuringMachinesAPI.Services;
+using TuringMachinesAPI.Utils;
 
 namespace TuringMachinesAPI.Services
 {
@@ -61,6 +62,11 @@ namespace TuringMachinesAPI.Services
             if (db.Players.Any(p => p.Username == player.Username))
             {
                 return null; 
+            }
+
+            if (ValidationUtils.ContainsDisallowedContent(player.Username))
+            {
+                return null;
             }
 
             if (string.IsNullOrWhiteSpace(player.Password))

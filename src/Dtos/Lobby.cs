@@ -10,6 +10,9 @@ namespace TuringMachinesAPI.Dtos
         [Required]
         public string Code { get; set; } = "";
 
+        [Required]
+        public string Name { get; set; } = "Unnamed Lobby";
+
         public string? Password { get; set; }
 
         [Required]
@@ -17,6 +20,9 @@ namespace TuringMachinesAPI.Dtos
 
         [Required]
         public string LevelName { get; set; }
+
+        [Required]
+        public int MaxPlayers { get; set; } = 4;
 
         [Required]
         public bool HasStarted { get; set; } = false;

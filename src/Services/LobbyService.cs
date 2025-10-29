@@ -2,6 +2,7 @@
 using TuringMachinesAPI.DataSources;
 using TuringMachinesAPI.Entities;
 using TuringMachinesAPI.Dtos;
+using TuringMachinesAPI.Utils;
 
 namespace TuringMachinesAPI.Services
 {
@@ -44,10 +45,12 @@ namespace TuringMachinesAPI.Services
                 {
                     Id = lobby.Id,
                     Code = lobby.Code,
-                    Password = lobby.Password,
+                    Name = lobby.Name,
+                    Password = "",
                     PasswordProtected = !string.IsNullOrEmpty(lobby.Password),
                     HostPlayer = hostName,
                     LevelName = levelName,
+                    MaxPlayers = lobby.MaxPlayers,
                     HasStarted = lobby.HasStarted,
                     CreatedAt = lobby.CreatedAt,
                     LobbyPlayers = lobby.LobbyPlayers != null
@@ -80,10 +83,12 @@ namespace TuringMachinesAPI.Services
             {
                 Id = entity.Id,
                 Code = entity.Code,
-                Password = entity.Password,
+                Name = entity.Name,
+                Password = "",
                 PasswordProtected = !string.IsNullOrEmpty(entity.Password),
                 HostPlayer = hostName,
                 LevelName = levelName,
+                MaxPlayers = entity.MaxPlayers,
                 HasStarted = entity.HasStarted,
                 CreatedAt = entity.CreatedAt,
                 LobbyPlayers = entity.LobbyPlayers != null
@@ -93,17 +98,30 @@ namespace TuringMachinesAPI.Services
             };
         }
 
-        public Dtos.Lobby Create(int hostPlayerId, int selectedLevelId, string? password = null)
+        public Dtos.Lobby? Create(int hostPlayerId, string name, int selectedLevelId, int max_players, string? password = null)
         {
             var random = new Random();
             string code = random.Next(10000, 99999).ToString();
 
+            name = ValidationUtils.ContainsDisallowedContent(name) ? "Unnamed Lobby" : name;
+            if (max_players < 2 || max_players > 10)
+                max_players = 4;
+
+            if (password != null && ValidationUtils.ContainsDisallowedContent(password))
+                password = null;
+
+            var existingLobby = db.Lobbies.FirstOrDefault(l => l.LobbyPlayers != null && l.LobbyPlayers.Contains(hostPlayerId));
+            if (existingLobby != null)
+                return null;
+
             var lobby = new Entities.Lobby
             {
                 Code = code,
+                Name = name,
                 Password = password,
                 HostPlayerId = hostPlayerId,
                 SelectedLevelId = selectedLevelId,
+                MaxPlayers = max_players,
                 HasStarted = false,
                 CreatedAt = DateTime.UtcNow,
                 LobbyPlayers = new List<int> { hostPlayerId }
@@ -122,9 +140,11 @@ namespace TuringMachinesAPI.Services
             {
                 Id = lobby.Id,
                 Code = lobby.Code,
-                Password = lobby.Password,
+                Name = lobby.Name,
+                Password = "",
                 HostPlayer = hostName,
                 LevelName = levelName,
+                MaxPlayers = lobby.MaxPlayers,
                 HasStarted = false,
                 CreatedAt = lobby.CreatedAt,
                 LobbyPlayers = new List<string> { hostName }
@@ -175,10 +195,13 @@ namespace TuringMachinesAPI.Services
         public bool StartLobby(string code, int playerId)
         {
             var lobby = db.Lobbies.FirstOrDefault(l => l.Code == code);
-            if (lobby == null)
+            if (lobby == null || lobby.LobbyPlayers == null)
                 return false;
 
             if (lobby.HostPlayerId != playerId)
+                return false;
+
+            if (lobby.LobbyPlayers.Count < 2 || lobby.LobbyPlayers.Count > lobby.MaxPlayers)
                 return false;
 
             lobby.HasStarted = true;

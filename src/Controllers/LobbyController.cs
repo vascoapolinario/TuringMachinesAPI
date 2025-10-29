@@ -61,14 +61,17 @@ namespace TuringMachinesAPI.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
-        public async Task<IActionResult> CreateAsync([FromQuery] int selectedLevelId, [FromQuery] string? password = null)
+        public async Task<IActionResult> CreateAsync([FromQuery] int selectedLevelId, [FromQuery] string name, [FromQuery] int max_players, [FromQuery] string? password = null)
         {
             int hostPlayerId = int.Parse(User.FindFirst("id")!.Value);
 
             if (selectedLevelId <= 0)
                 return BadRequest(new { message = "Invalid level ID." });
 
-            var lobby = _service.Create(hostPlayerId, selectedLevelId, password);
+            var lobby = _service.Create(hostPlayerId, name, selectedLevelId, max_players, password);
+
+            if (lobby is null)
+                return BadRequest(new { message = "Could not create lobby (possible invalid parameters or player is in a lobby)." });
 
             await _hub.Clients.All.SendAsync("LobbyCreated", new
             {

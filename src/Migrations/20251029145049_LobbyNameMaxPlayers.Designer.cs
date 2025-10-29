@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TuringMachinesAPI.DataSources;
@@ -11,9 +12,11 @@ using TuringMachinesAPI.DataSources;
 namespace TuringMachinesAPI.Migrations
 {
     [DbContext(typeof(TuringMachinesDbContext))]
-    partial class TuringMachinesDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251029145049_LobbyNameMaxPlayers")]
+    partial class LobbyNameMaxPlayers
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

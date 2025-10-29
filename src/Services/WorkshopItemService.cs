@@ -4,6 +4,7 @@ using TuringMachinesAPI.DataSources;
 using TuringMachinesAPI.Dtos;
 using TuringMachinesAPI.Entities;
 using TuringMachinesAPI.Enums;
+using TuringMachinesAPI.Utils;
 
 namespace TuringMachinesAPI.Services
 {
@@ -197,6 +198,34 @@ namespace TuringMachinesAPI.Services
                 .FirstOrDefault() ?? "Unknown";
             var type = json.GetProperty("type").GetString() ?? "";
 
+            if (ValidationUtils.ContainsDisallowedContent(name) ||
+            ValidationUtils.ContainsDisallowedContent(description) ||
+            name.Length > 100 ||
+            description.Length > 250)
+            {
+                Console.WriteLine("[AddWorkshopItem] Invalid name or description content.");
+                return null;
+            }
+
+            if (Enum.TryParse(type, true, out WorkshopItemType parsedTypeVerify))
+            {
+                bool nameExists = db.WorkshopItems
+                    .AsNoTracking()
+                    .Any(wi => wi.Name.ToLower() == name.ToLower() &&
+                               wi.Type == parsedTypeVerify);
+                if (nameExists)
+                {
+                    Console.WriteLine("[AddWorkshopItem] Workshop item with the same name and type already exists.");
+                    return null;
+                }
+            }
+            else
+            {
+                Console.WriteLine("[AddWorkshopItem] Invalid type.");
+                return null;
+            }
+
+
             var authorId = db.Players
                 .AsNoTracking()
                 .Where(p => p.Username == authorName)
@@ -213,11 +242,29 @@ namespace TuringMachinesAPI.Services
                 Subscribers = null
             };
 
-            db.WorkshopItems.Add(newItem);
-            db.SaveChanges();
 
             if (type == WorkshopItemType.Level.ToString())
             {
+                var alphabetJson = json.TryGetProperty("alphabetJson", out var a) ? a.GetRawText() : "[_]";
+                string? DetailedDescription = json.TryGetProperty("detailedDescription", out var ddstr) ? ddstr.GetString() : null;
+                string? Objective = json.TryGetProperty("objective", out var obStr) ? obStr.GetString() : null;
+                string? Mode = json.TryGetProperty("mode", out var modePropstr) ? modePropstr.GetString() : null;
+
+                var validAlphabet = ValidationUtils.IsValidJson(alphabetJson) && alphabetJson.Length <= 100;
+                var validDetailedDescription = DetailedDescription == null || (DetailedDescription.Length <= 1000 && !ValidationUtils.ContainsDisallowedContent(DetailedDescription));
+                var validObjective = Objective == null || (Objective.Length <= 500 && !ValidationUtils.ContainsDisallowedContent(Objective));
+                var validMode = Mode == null || Mode.ToLower() == "accept" || Mode.ToLower() == "transform";
+
+
+                if (!(validAlphabet && validDetailedDescription && validObjective && validMode))
+                {
+                    Console.WriteLine("[AddWorkshopItem] Invalid level specific properties.");
+                    return null;
+                }
+                db.WorkshopItems.Add(newItem);
+                db.SaveChanges();
+
+
                 var level = new Entities.LevelWorkshopItem
                 {
                     WorkshopItemId = newItem.Id,
@@ -225,7 +272,7 @@ namespace TuringMachinesAPI.Services
                     DetailedDescription = json.TryGetProperty("detailedDescription", out var dd) ? dd.GetString() ?? "" : "",
                     Objective = json.TryGetProperty("objective", out var ob) ? ob.GetString() ?? "" : "",
                     Mode = Enum.TryParse(json.TryGetProperty("mode", out var modeProp) ? modeProp.GetString() : "accept", true, out LevelMode modeVal) ? modeVal : LevelMode.accept,
-                    AlphabetJson = json.TryGetProperty("alphabetJson", out var a) ? a.GetRawText() : "[_]",
+                    AlphabetJson = alphabetJson,
                     TransformTestsJson = json.TryGetProperty("transformTestsJson", out var t) ? t.GetRawText() : null,
                     CorrectExamplesJson = json.TryGetProperty("correctExamplesJson", out var c) ? c.GetRawText() : null,
                     WrongExamplesJson = json.TryGetProperty("wrongExamplesJson", out var w) ? w.GetRawText() : null
@@ -255,6 +302,20 @@ namespace TuringMachinesAPI.Services
             }
             else if (type == WorkshopItemType.Machine.ToString())
             {
+                var validAlphabet = ValidationUtils.IsValidJson(
+                    json.TryGetProperty("alphabetJson", out var aStr) ? aStr.GetRawText() : "[_]");
+                var validNodes = ValidationUtils.IsValidJson(
+                    json.TryGetProperty("nodesJson", out var nStr) ? nStr.GetRawText() : "[]");
+                var validConnections = ValidationUtils.IsValidJson(
+                    json.TryGetProperty("connectionsJson", out var cStr) ? cStr.GetRawText() : "[]");
+                if (!(validAlphabet && validNodes && validConnections))
+                {
+                    Console.WriteLine("[AddWorkshopItem] Invalid machine specific properties.");
+                    return null;
+                }
+                db.WorkshopItems.Add(newItem);
+                db.SaveChanges();
+
                 var machine = new Entities.MachineWorkshopItem
                 {
                     WorkshopItemId = newItem.Id,
@@ -282,16 +343,8 @@ namespace TuringMachinesAPI.Services
                 };
             }
 
-            return new Dtos.WorkshopItem
-            {
-                Id = newItem.Id,
-                Name = name,
-                Description = description,
-                Author = authorName ?? "Unknown",
-                Type = type,
-                Rating = 0.0,
-                Subscribers = 0
-            };
+            Console.WriteLine("[AddWorkshopItem] Unsupported workshop item type.");
+            return null;
         }
 
         public bool RateWorkshopItem(int userId, int ItemId, int Rating)
