@@ -17,7 +17,7 @@ namespace TuringMachinesAPI.Utils
             if (Regex.IsMatch(input, @"https?://|www\.|\.com|\.net|\.org|\.io|\.gg|\.xyz|@", RegexOptions.IgnoreCase))
                 return true;
 
-            if (Regex.IsMatch(input, @"[^a-zA-Z0-9\s_-]", RegexOptions.IgnoreCase))
+            if (Regex.IsMatch(input, @"[^a-zA-Z0-9\s_\-.,!?()\""]", RegexOptions.IgnoreCase))
                 return true;
 
             if (input.Any(ch => char.IsControl(ch) && ch != '\n' && ch != '\r'))
