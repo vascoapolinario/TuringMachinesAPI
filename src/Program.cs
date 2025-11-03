@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.IdentityModel.Tokens.Jwt;
 using System.Threading.RateLimiting;
 using TuringMachinesAPI.DataSources;
 using TuringMachinesAPI.Hubs;
@@ -16,16 +17,21 @@ if (jwtKey.Value is not null && jwtKey.Path is not null && !jwtKey.Value.Equals(
     builder.Configuration["Jwt:Key"] = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(jwtKey.Value));
 }
 
+JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
+JwtSecurityTokenHandler.DefaultOutboundClaimTypeMap.Clear();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        options.MapInboundClaims = false;
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = false,
             ValidateAudience = false,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(jwtKey.Get<byte[]>())
+            IssuerSigningKey = new SymmetricSecurityKey(jwtKey.Get<byte[]>()),
+            NameClaimType = "sub",
+            RoleClaimType = "role"
         };
 
         options.Events = new JwtBearerEvents
@@ -109,6 +115,7 @@ builder.Services.AddDbContext<TuringMachinesDbContext>(o =>
 
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<ICryptoService, AesCryptoService>();
+builder.Services.AddSingleton<DiscordWebhookService>();
 builder.Services.AddScoped<WorkshopItemService>();
 builder.Services.AddScoped<LobbyService>();
 builder.Services.AddScoped<PlayerService>();

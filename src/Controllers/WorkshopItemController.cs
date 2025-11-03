@@ -11,10 +11,12 @@ namespace TuringMachinesAPI.Controllers
     public class WorkshopItemController : ControllerBase
     {
         private readonly WorkshopItemService _service;
+        private readonly DiscordWebhookService _discordWebhookService;
 
-        public WorkshopItemController(WorkshopItemService service)
+        public WorkshopItemController(WorkshopItemService service, DiscordWebhookService discordwebhookservice)
         {
             _service = service;
+            _discordWebhookService = discordwebhookservice;
         }
 
         /// <summary>
@@ -59,12 +61,14 @@ namespace TuringMachinesAPI.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
-        public IActionResult Create([FromBody] JsonElement WorkshopItemJson)
+        public async Task<IActionResult> Create([FromBody] JsonElement WorkshopItemJson)
         {
             int UserId = int.Parse(User.FindFirst("id")!.Value);
             WorkshopItem? item = _service.AddWorkshopItem(WorkshopItemJson, UserId);
             if (item is null)
                 return BadRequest(new { message = "Invalid workshop item data." });
+
+            await _discordWebhookService.NotifyNewWorkshopItemAsync(item.Type, item.Name, User.Identity!.Name!);
             return CreatedAtAction(nameof(GetById), new { id = item.Id }, item);
         }
 

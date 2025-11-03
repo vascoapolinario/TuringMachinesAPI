@@ -14,11 +14,13 @@ namespace TuringMachinesAPI.Controllers
     {
         private readonly LobbyService _service;
         private readonly IHubContext<LobbyHub> _hub;
+        private readonly DiscordWebhookService _discordWebService;
 
-        public LobbyController(LobbyService service, IHubContext<LobbyHub> hub)
+        public LobbyController(LobbyService service, IHubContext<LobbyHub> hub, DiscordWebhookService discordWebService)
         {
             _service = service;
             _hub = hub;
+            _discordWebService = discordWebService;
         }
 
         /// <summary>
@@ -79,6 +81,7 @@ namespace TuringMachinesAPI.Controllers
                 hostId = hostPlayerId
             });
 
+            await _discordWebService.NotifyNewLobbyAsync(User.Identity!.Name!, lobby.Code, lobby.LevelName);
             return CreatedAtAction(nameof(GetByCode), new { code = lobby.Code }, lobby);
         }
 

@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Threading.Tasks;
 using TuringMachinesAPI.Dtos;
 using TuringMachinesAPI.Services;
 
@@ -10,10 +11,12 @@ namespace TuringMachinesAPI.Controllers
     public class PlayersController : ControllerBase
     {
         private readonly PlayerService _playerService;
+        private readonly DiscordWebhookService discordWebhookService;
 
-        public PlayersController(PlayerService playerService)
+        public PlayersController(PlayerService playerService, DiscordWebhookService discordWebhookService)
         {
             this._playerService = playerService;
+            this.discordWebhookService = discordWebhookService;
         }
 
         /// <summary>
@@ -49,7 +52,7 @@ namespace TuringMachinesAPI.Controllers
         [ProducesResponseType(typeof(Player), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
-        public IActionResult AddPlayer([FromBody] Player player)
+        public async Task<IActionResult> AddPlayer([FromBody] Player player)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
@@ -62,6 +65,8 @@ namespace TuringMachinesAPI.Controllers
 
                 return BadRequest(new { message = "Invalid player data or missing password." });
             }
+
+            await discordWebhookService.NotifyNewPlayerAsync(created.Username);
 
             return CreatedAtAction(nameof(GetPlayerById), new { id = created.Id }, _playerService.NonSensitivePlayer(created));
         }
