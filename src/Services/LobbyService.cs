@@ -9,10 +9,12 @@ namespace TuringMachinesAPI.Services
     public class LobbyService
     {
         private readonly TuringMachinesDbContext db;
+        private readonly ICryptoService CryptoService;
 
-        public LobbyService(TuringMachinesDbContext context)
+        public LobbyService(TuringMachinesDbContext context, ICryptoService cryptoService)
         {
             db = context;
+            CryptoService = cryptoService;
         }
 
         public IEnumerable<Dtos.Lobby> GetAll(string? codeFilter = null, bool includeStarted = false)
@@ -107,9 +109,6 @@ namespace TuringMachinesAPI.Services
             if (max_players < 2 || max_players > 10)
                 max_players = 4;
 
-            if (password != null && ValidationUtils.ContainsDisallowedContent(password))
-                password = null;
-
             var existingLobby = db.Lobbies.FirstOrDefault(l => l.LobbyPlayers != null && l.LobbyPlayers.Contains(hostPlayerId));
             if (existingLobby != null)
                 return null;
@@ -118,7 +117,7 @@ namespace TuringMachinesAPI.Services
             {
                 Code = code,
                 Name = name,
-                Password = password,
+                Password = CryptoService.Encrypt(password),
                 HostPlayerId = hostPlayerId,
                 SelectedLevelId = selectedLevelId,
                 MaxPlayers = max_players,
@@ -157,7 +156,7 @@ namespace TuringMachinesAPI.Services
             if (lobby == null)
                 return false;
 
-            if (!string.IsNullOrEmpty(lobby.Password) && lobby.Password != password)
+            if (!string.IsNullOrEmpty(lobby.Password) && CryptoService.Decrypt(lobby.Password) != password)
                 return false;
 
             if (lobby.LobbyPlayers == null)
