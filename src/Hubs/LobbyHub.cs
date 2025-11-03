@@ -2,6 +2,7 @@
 using Newtonsoft.Json.Linq;
 using System.Text.Json;
 using TuringMachinesAPI.Services;
+using TuringMachinesAPI.Utils;
 
 namespace TuringMachinesAPI.Hubs
 {
@@ -344,6 +345,48 @@ namespace TuringMachinesAPI.Hubs
             catch (Exception ex)
             {
                 Console.WriteLine($"[ProposeDelete] ERROR: {ex.Message}");
+            }
+        }
+
+        public async Task SendChatMessage(object payload)
+        {
+            try
+            {
+                var json = payload?.ToString();
+                if (string.IsNullOrEmpty(json))
+                    return;
+
+                using var doc = JsonDocument.Parse(json);
+                var root = doc.RootElement;
+
+                string lobbyCode = root.GetProperty("lobbyCode").GetString();
+                string sender = root.TryGetProperty("sender", out var sProp) ? sProp.GetString() ?? "Unknown" : "Unknown";
+                string message = root.TryGetProperty("message", out var mProp) ? mProp.GetString() ?? "" : "";
+
+                if (string.IsNullOrWhiteSpace(lobbyCode) || string.IsNullOrWhiteSpace(message))
+                    return;
+
+                if (ValidationUtils.ContainsDisallowedContent(message))
+                {
+                    await Clients.Caller.SendAsync("ChatRejected", new { reason = "Message contains disallowed content." });
+                    return;
+                }
+
+                var formatted = new
+                {
+                    lobbyCode,
+                    sender,
+                    message,
+                    timestamp = DateTime.UtcNow
+                };
+
+                await Clients.Group(lobbyCode).SendAsync("ChatMessageReceived", formatted);
+
+                Console.WriteLine($"[Chat] {sender}@{lobbyCode}: {message}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[SendChatMessage] ERROR: {ex.Message}");
             }
         }
 
