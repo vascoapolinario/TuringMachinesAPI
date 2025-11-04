@@ -59,7 +59,8 @@ namespace TuringMachinesAPI.Services
                             CorrectExamplesJson = level.CorrectExamplesJson,
                             WrongExamplesJson = level.WrongExamplesJson,
                             UserRating = UserRating,
-                            UserIsSubscribed = IsUserSubscribed(UserId, i.Id)
+                            UserIsSubscribed = IsUserSubscribed(UserId, i.Id),
+                            TwoTapes = level.TwoTapes
                         };
                         continue;
                     }
@@ -142,7 +143,8 @@ namespace TuringMachinesAPI.Services
                     CorrectExamplesJson = level.CorrectExamplesJson,
                     WrongExamplesJson = level.WrongExamplesJson,
                     UserRating = UserRating,
-                    UserIsSubscribed = IsUserSubscribed(UserId, entity.Id)
+                    UserIsSubscribed = IsUserSubscribed(UserId, entity.Id),
+                    TwoTapes = level.TwoTapes
                 };
             }
 
@@ -275,7 +277,8 @@ namespace TuringMachinesAPI.Services
                     AlphabetJson = alphabetJson,
                     TransformTestsJson = json.TryGetProperty("transformTestsJson", out var t) ? t.GetRawText() : null,
                     CorrectExamplesJson = json.TryGetProperty("correctExamplesJson", out var c) ? c.GetRawText() : null,
-                    WrongExamplesJson = json.TryGetProperty("wrongExamplesJson", out var w) ? w.GetRawText() : null
+                    WrongExamplesJson = json.TryGetProperty("wrongExamplesJson", out var w) ? w.GetRawText() : null,
+                    TwoTapes = json.TryGetProperty("twoTapes", out var tt) ? tt.GetBoolean() : false
                 };
 
                 db.Levels.Add(level);

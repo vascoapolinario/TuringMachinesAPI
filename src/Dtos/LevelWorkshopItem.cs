@@ -25,6 +25,9 @@ namespace TuringMachinesAPI.Dtos
         [Required]
         public string Mode { get; set; } = "accept";
 
+        [Required]
+        public bool TwoTapes { get; set; } = false;
+
         public string? TransformTestsJson { get; set; } = null;
 
         public string? CorrectExamplesJson { get; set; } = null;

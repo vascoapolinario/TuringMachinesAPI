@@ -31,6 +31,9 @@ namespace TuringMachinesAPI.Entities
         [Required]
         public string AlphabetJson { get; set; } = "[_]";
 
+        [Required]
+        public bool TwoTapes { get; set; } = false;
+
 
         public string? TransformTestsJson { get; set; } = null;
         public string? CorrectExamplesJson { get; set; } = null;
