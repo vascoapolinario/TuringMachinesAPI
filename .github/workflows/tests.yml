@@ -1,0 +1,62 @@
+name: Run API Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: TuringDBTests
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U test_user -d TuringDBTests"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: |
+          dotnet restore src/Project/TuringMachinesAPI.csproj
+          dotnet restore src/Tests/TuringMachinesAPITests.csproj
+
+      - name: Build solution
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Run tests
+        env:
+          ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=TuringDBTests;Username=test_user;Password=password"
+        run: |
+          echo "Waiting for PostgreSQL to be ready..."
+          for i in {1..15}; do
+            if pg_isready -h localhost -p 5432 -U test_user; then break; fi
+            echo "Postgres not ready yet..."; sleep 2;
+          done
+          echo "PostgreSQL is ready. Running tests..."
+          dotnet test src/Tests/TuringMachinesAPITests.csproj --no-build --configuration Release --verbosity normal --framework net8.0 --logger "trx;LogFileName=test_results.trx" --results-directory ./TestResults
+
+      - name: Upload test results (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: ./TestResults

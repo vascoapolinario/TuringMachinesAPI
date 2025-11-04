@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.14.36221.1 d17.14
+VisualStudioVersion = 17.14.36221.1
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TuringMachinesAPI", "src\TuringMachinesAPI.csproj", "{6179AF4C-F436-4328-9E10-F86668C20DAB}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TuringMachinesAPI", "src\Project\TuringMachinesAPI.csproj", "{6179AF4C-F436-4328-9E10-F86668C20DAB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TuringMachinesAPITests", "src\Tests\TuringMachinesAPITests.csproj", "{36EE0DEC-0EE9-4983-A64F-7328CCC8AE38}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,10 @@ Global
 		{6179AF4C-F436-4328-9E10-F86668C20DAB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6179AF4C-F436-4328-9E10-F86668C20DAB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6179AF4C-F436-4328-9E10-F86668C20DAB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{36EE0DEC-0EE9-4983-A64F-7328CCC8AE38}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{36EE0DEC-0EE9-4983-A64F-7328CCC8AE38}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{36EE0DEC-0EE9-4983-A64F-7328CCC8AE38}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{36EE0DEC-0EE9-4983-A64F-7328CCC8AE38}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

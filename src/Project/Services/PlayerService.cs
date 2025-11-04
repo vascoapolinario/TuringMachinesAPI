@@ -95,6 +95,7 @@ namespace TuringMachinesAPI.Services
             byte[] keyBytes = _config.GetRequiredSection("Jwt:Key").Get<byte[]>()!;
             var key = new SymmetricSecurityKey(keyBytes);
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            int expireHours = _config.GetValue<int?>("Jwt:ExpireHours") ?? 4;
 
             var claims = new[]
             {
@@ -105,7 +106,7 @@ namespace TuringMachinesAPI.Services
 
             var token = new JwtSecurityToken(
                 claims: claims,
-                expires: DateTime.UtcNow.AddHours(4),
+                expires: DateTime.UtcNow.AddHours(expireHours),
                 signingCredentials: creds
             );
 

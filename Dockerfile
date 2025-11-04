@@ -1,14 +1,14 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-WORKDIR /src
+WORKDIR /app
 
 COPY TuringMachinesAPI.sln ./
-COPY src/TuringMachinesAPI.csproj ./src/
+COPY src/Project/TuringMachinesAPI.csproj ./src/Project/
 
-RUN dotnet restore TuringMachinesAPI.sln
+RUN dotnet restore src/Project/TuringMachinesAPI.csproj
 
 COPY . .
 
-RUN dotnet publish src/TuringMachinesAPI.csproj -c Release -o /app/publish
+RUN dotnet publish src/Project/TuringMachinesAPI.csproj -c Release -o /app/publish
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
