@@ -1,4 +1,7 @@
 TRUNCATE TABLE public."Players" RESTART IDENTITY CASCADE;
+TRUNCATE TABLE public."WorkshopItems" RESTART IDENTITY CASCADE;
+TRUNCATE TABLE public."LevelWorkshopItems" RESTART IDENTITY CASCADE;
+TRUNCATE TABLE public."MachineWorkshopItems" RESTART IDENTITY CASCADE;
 
 INSERT INTO public."Players" ("Id", "Username", "Role", "Password")
 VALUES
