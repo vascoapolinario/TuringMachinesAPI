@@ -54,16 +54,7 @@ jobs:
           echo "PostgreSQL is ready. Running tests..."
           dotnet test src/Tests/TuringMachinesAPITests.csproj --no-build --configuration Release --verbosity normal --framework net8.0 --logger "trx;LogFileName=test_results.trx" --results-directory ./TestResults
 
-      - name: Publish unit test results
-        if: always()
-        uses: EnricoMi/publish-unit-test-result-action@v2
-        with:
-          files: 'TestResults/*.trx'
-          check_name: 'API Tests'
-          fail_on: 'test_failures'
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload test results (artifact)
+      - name: Upload test results (always)
         if: always()
         uses: actions/upload-artifact@v4
         with:
