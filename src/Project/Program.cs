@@ -7,6 +7,7 @@ using System.Threading.RateLimiting;
 using TuringMachinesAPI.DataSources;
 using TuringMachinesAPI.Hubs;
 using TuringMachinesAPI.Services;
+using TuringMachinesAPI.Middlewares;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -156,6 +157,7 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseRateLimiter();
+app.UseApplicationInformation();
 app.UseAuthorization();
 app.MapControllers();
 app.MapHub<LobbyHub>("/hubs/lobby");
