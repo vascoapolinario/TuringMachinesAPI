@@ -135,7 +135,6 @@ namespace TuringMachinesAPI.Services
             };
         }
 
-
         public IEnumerable<Dtos.Player> NonSensitivePlayers(IEnumerable<Player> SensitivePlayers)
         {
             List<Dtos.Player> NonSensitivePlayers = new List<Dtos.Player>();
@@ -144,6 +143,54 @@ namespace TuringMachinesAPI.Services
                 NonSensitivePlayers.Add(NonSensitivePlayer(player));
             }
             return NonSensitivePlayers;
+        }
+
+        public bool IsAdmin(int playerId)
+        {
+            var player = GetPlayerById(playerId);
+            return player?.Role == "Admin";
+        }
+
+        public bool DeletePlayer(int playerId)
+        {
+            var player = db.Players.FirstOrDefault(p => p.Id == playerId);
+
+            if (player is not null)
+            {
+                var workshopItems = db.WorkshopItems
+                    .Where(wi => wi.Subscribers != null && wi.Subscribers.Any(s => s == playerId))
+                    .ToList();
+
+                foreach (var workshopItem in workshopItems)
+                {
+                    workshopItem.Subscribers!.Remove(playerId);
+                }
+                var reviews = db.Reviews.Where(r => r.UserId == playerId).ToList();
+                foreach (var review in reviews)
+                    {
+                    var item = db.WorkshopItems.FirstOrDefault(wi => wi.Id == review.WorkshopItemId);
+                    if (item is null) continue;
+                    var otherRatings = db.Reviews
+                        .Where(r => r.WorkshopItemId == item.Id && r.UserId != playerId)
+                        .Select(r => r.Rating)
+                        .ToList();
+
+                    if (otherRatings.Count == 0)
+                    {
+                        item.Rating = 0;
+                    }
+                    else
+                    {
+                        item.Rating = (int)Math.Round(otherRatings.Average());
+                    }
+                }
+                db.Reviews.RemoveRange(reviews);
+            }
+
+            if (player is null) return false;
+            db.Players.Remove(player);
+            db.SaveChanges();
+            return true;
         }
     }
 }

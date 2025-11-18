@@ -109,5 +109,27 @@ namespace TuringMachinesAPI.Controllers
                 user = new { id, username, role }
             });
         }
+
+        /// <summary>
+        /// Delete a player by ID.
+        /// </summary>
+        /// <param name="id">The ID of the player to delete.</param>
+        [HttpDelete("{id:int}")]
+        [Authorize]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public IActionResult DeletePlayer(int id)
+        {
+            int playerId = int.Parse(_playerService.GetClaimsFromUser(User).Id ?? "-1");
+            if (!_playerService.IsAdmin(playerId) && playerId != id)
+                return Forbid("You do not have permission to delete this player.");
+
+            var success = _playerService.DeletePlayer(id);
+            if (!success)
+                return NotFound($"Player with ID {id} not found.");
+
+            return Ok(new { message = $"Player with ID {id} has been deleted." });
+        }
     }
 }

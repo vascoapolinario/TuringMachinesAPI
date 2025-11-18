@@ -101,6 +101,7 @@ Key endpoints:
 | POST   | `/players`         | Register new player         | No   |
 | POST   | `/players/login`   | Login, return JWT           | No   |
 | GET    | `/players/verify`  | Verify token and return user| Yes  |
+| DELETE | `/players/{id}`    | Delete a player account     | Yes  |
 
 ### Workshop Items
 

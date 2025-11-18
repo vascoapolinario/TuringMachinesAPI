@@ -122,5 +122,17 @@ namespace TuringMachinesAPITests.Tests
             Assert.Equal("safeUser", nonSensitive.Username);
             Assert.Equal("", nonSensitive.Password);
         }
+
+        [Fact]
+        public void DeletePlayer_ShouldRemovePlayer_WhenExists()
+        {
+            var player = service.AddPlayer(new Player { Username = "deleteUser", Password = "tobedeleted" });
+            Assert.NotNull(player);
+
+            bool deleted = service.DeletePlayer(player.Id);
+            Assert.True(deleted);
+            var shouldBeNull = service.GetPlayerById(player.Id);
+            Assert.Null(shouldBeNull);
+        }
     }
 }
