@@ -192,5 +192,14 @@ namespace TuringMachinesAPI.Services
             db.SaveChanges();
             return true;
         }
+
+        public bool PlayerExistsAsIs(string playerId, string username, string role)
+        {
+            int id = int.TryParse(playerId, out var parsedId) ? parsedId : -1;
+            var player = GetPlayerById(id);
+            return player is not null &&
+                   player.Username == username &&
+                   player.Role == role;
+        }
     }
 }

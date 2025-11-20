@@ -100,9 +100,15 @@ namespace TuringMachinesAPI.Controllers
         /// <returns> User Info </returns>
         [Authorize]
         [HttpGet("verify")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public IActionResult Verify()
         {
             var (id, username, role) = _playerService.GetClaimsFromUser(User);
+            if (_playerService.PlayerExistsAsIs(id!, username!, role!) is false)
+            {
+                return Unauthorized(new { valid = false, message = "User does not exist." });
+            }
             return Ok(new
             {
                 valid = true,

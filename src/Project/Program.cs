@@ -49,6 +49,29 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 }
 
                 return Task.CompletedTask;
+            },
+            OnTokenValidated = context =>
+            {
+                var services = context.HttpContext.RequestServices;
+                var playerService = services.GetRequiredService<PlayerService>();
+
+                var (id, username, role) = playerService.GetClaimsFromUser(context.Principal!);
+
+                if (string.IsNullOrEmpty(id) ||
+                    string.IsNullOrEmpty(username) ||
+                    string.IsNullOrEmpty(role))
+                {
+                    context.Fail("Invalid token claims.");
+                    return Task.CompletedTask;
+                }
+
+                var exists = playerService.PlayerExistsAsIs(id, username, role);
+                if (!exists)
+                {
+                    context.Fail("User does not exist or claims are outdated.");
+                    return Task.CompletedTask;
+                }
+                return Task.CompletedTask;
             }
         };
     });
