@@ -32,7 +32,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(jwtKey.Get<byte[]>()),
             NameClaimType = "sub",
-            RoleClaimType = "role"
+            RoleClaimType = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
         };
 
         options.Events = new JwtBearerEvents

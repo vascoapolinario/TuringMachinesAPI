@@ -23,7 +23,10 @@ namespace TuringMachinesAPI.Controllers
         /// Get all registered players.
         /// </summary>
         [HttpGet]
+        [Authorize(Roles = "Admin")]
         [ProducesResponseType(typeof(IEnumerable<Player>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         public IActionResult GetAllPlayers()
         {
             var players = _playerService.GetAllPlayers();
@@ -34,7 +37,10 @@ namespace TuringMachinesAPI.Controllers
         /// Get a player by ID.
         /// </summary>
         [HttpGet("{id:int}")]
+        [Authorize(Roles = "Admin")]
         [ProducesResponseType(typeof(Player), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public IActionResult GetPlayerById(int id)
         {
@@ -107,7 +113,7 @@ namespace TuringMachinesAPI.Controllers
             var (id, username, role) = _playerService.GetClaimsFromUser(User);
             if (_playerService.PlayerExistsAsIs(id!, username!, role!) is false)
             {
-                return Unauthorized(new { valid = false, message = "User does not exist." });
+                return Unauthorized(new { valid = false, message = "Claims do not match the database" });
             }
             return Ok(new
             {

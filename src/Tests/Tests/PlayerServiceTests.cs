@@ -134,5 +134,22 @@ namespace TuringMachinesAPITests.Tests
             var shouldBeNull = service.GetPlayerById(player.Id);
             Assert.Null(shouldBeNull);
         }
+
+        [Fact]
+        public void PlayerExistsAsIs_ShouldReturnTrue_WhenExists()
+        {
+            var player = service.AddPlayer(new Player { Username = "existUser", Password = "pass", Role = "User" });
+            string playerId = player.Id.ToString();
+            Assert.NotNull(player);
+            bool exists = service.PlayerExistsAsIs(playerId, "existUser", "User");
+            Assert.True(exists);
+        }
+
+        [Fact]
+        public void PlayerExistsAsIs_ShouldReturnFalse_WhenNotExists()
+        {
+            bool exists = service.PlayerExistsAsIs("99999", "nonUser", "User");
+            Assert.False(exists);
+        }
     }
 }

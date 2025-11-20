@@ -91,13 +91,14 @@ The **Players** module handles registration, login and basic identity:
 - Issue **JWT tokens** for authenticated requests
 - Expose a `/players/verify` endpoint to validate the token and fetch basic user info
 - `NonSensitivePlayer` DTOs ensure passwords never leave the server
+- Only admins are able to see the list of all players or players by id
 
 Key endpoints:
 
 | Method | Route              | Description                 | Auth |
 |--------|--------------------|-----------------------------|------|
-| GET    | `/players`         | List all players            | No   |
-| GET    | `/players/{id}`    | Get player by id            | No   |
+| GET    | `/players`         | List all players            | Yes  |
+| GET    | `/players/{id}`    | Get player by id            | Yes  |
 | POST   | `/players`         | Register new player         | No   |
 | POST   | `/players/login`   | Login, return JWT           | No   |
 | GET    | `/players/verify`  | Verify token and return user| Yes  |
