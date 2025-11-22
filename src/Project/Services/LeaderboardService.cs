@@ -92,8 +92,21 @@ namespace TuringMachinesAPI.Services
                 ConnectionCount = connectionCount
             };
 
-            db.LevelSubmissions.Add(newItem);
-            db.SaveChanges();
+            if (db.LevelSubmissions.Any(s => s.PlayerId == playerId && s.LeaderboardLevelId == levelId))
+            {
+                var existingItem = db.LevelSubmissions
+                    .First(s => s.PlayerId == playerId && s.LeaderboardLevelId == levelId);
+                existingItem.Time = time;
+                existingItem.NodeCount = nodeCount;
+                existingItem.ConnectionCount = connectionCount;
+                db.SaveChanges();
+                newItem = existingItem;
+            }
+            else
+            {
+                db.LevelSubmissions.Add(newItem);
+                db.SaveChanges();
+            }
 
             string? playerName = db.Players
                 .AsNoTracking()
