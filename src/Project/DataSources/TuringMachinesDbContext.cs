@@ -20,6 +20,27 @@ namespace TuringMachinesAPI.DataSources
             builder.Entity<WorkshopItem>()
                 .Property(p => p.Type)
                 .HasConversion(v => v.ToString(), v => Enum.Parse<WorkshopItemType>(v));
+
+            builder.Entity<LeaderboardLevel>()
+                .HasOne<WorkshopItem>()
+                .WithMany()
+                .HasForeignKey(l => l.WorkshopItemId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            builder.Entity<LevelSubmission>()
+                .HasOne<Player>()
+                .WithMany()
+                .HasForeignKey(l => l.PlayerId)
+                .IsRequired(true)
+                .OnDelete(deleteBehavior: DeleteBehavior.Cascade);
+
+            builder.Entity<LevelSubmission>()
+                .HasOne<LeaderboardLevel>()
+                .WithMany()
+                .HasForeignKey(l => l.LeaderboardLevelId)
+                .IsRequired(true)
+                .OnDelete(deleteBehavior: DeleteBehavior.Cascade);
         }
 
         public virtual DbSet<LevelWorkshopItem> Levels => Set<LevelWorkshopItem>();
@@ -27,8 +48,9 @@ namespace TuringMachinesAPI.DataSources
         public virtual DbSet<Entities.Player> Players => Set<Entities.Player>();
         public virtual DbSet<Entities.WorkshopItem> WorkshopItems => Set<Entities.WorkshopItem>();
         public virtual DbSet<Entities.Review> Reviews => Set<Entities.Review>();
-
         public virtual DbSet<Entities.Lobby> Lobbies => Set<Entities.Lobby>();
+        public virtual DbSet<Entities.LeaderboardLevel> LeaderboardLevels => Set<Entities.LeaderboardLevel>();
+        public virtual DbSet<Entities.LevelSubmission> LevelSubmissions => Set<Entities.LevelSubmission>();
 
     }
 }
