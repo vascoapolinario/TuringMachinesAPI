@@ -143,6 +143,7 @@ builder.Services.AddSingleton<DiscordWebhookService>();
 builder.Services.AddScoped<WorkshopItemService>();
 builder.Services.AddScoped<LobbyService>();
 builder.Services.AddScoped<PlayerService>();
+builder.Services.AddScoped<LeaderboardService>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

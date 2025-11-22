@@ -24,7 +24,7 @@ namespace TuringMachinesAPI.Controllers
         [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
         public IActionResult GetLeaderboard(bool? Player, string? levelName, string? filter)
         {
-            if (Player == null)
+            if (Player == null || Player == false)
             {
                 return Ok(leaderboardService.GetLeaderboard(levelName, filter));
             }
@@ -45,6 +45,18 @@ namespace TuringMachinesAPI.Controllers
         {
             int PlayerId = int.Parse(User.FindFirst("id")!.Value);
             return Ok(leaderboardService.AddSubmission(PlayerId, submission.LevelName, submission.Time, submission.NodeCount, submission.ConnectionCount));
+        }
+
+        [HttpPost("level")]
+        [Authorize(Roles = "Admin")]
+        [ProducesResponseType(typeof(LeaderboardLevel), StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+        public IActionResult AddLevel([FromBody] LeaderboardLevel level)
+        {
+            return Ok(leaderboardService.AddLeaderboardLevel(level.Name, level.Category, level.WorkshopItemId));
         }
     }
 }

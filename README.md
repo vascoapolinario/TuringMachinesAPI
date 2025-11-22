@@ -21,6 +21,7 @@ Game Project: [TuringSandbox](https://github.com/vascoapolinario/Turing-Sandbox-
 - [Core Features](#core-features)
   - [Players](#players)
   - [Workshop Items](#workshop-items)
+  - [Leaderboards](#Leaderboards)
   - [Multiplayer Lobbies](#multiplayer-lobbies)
   - [Health Checks](#health-checks)
 - [Real-Time Collaboration (SignalR)](#real-time-collaboration-signalr)
@@ -41,6 +42,7 @@ The main responsibilities are split across:
 - **Controllers**
   - `PlayersController` – authentication and user management
   - `WorkshopItemController` – All workshop related actions
+  - `LeaderboardController` – Leaderboard for player submission of levels
   - `LobbyController` – creation and management of multiplayer lobbies
   - `HealthController` – simple health/keep-alive endpoint
 - **Services**
@@ -134,6 +136,73 @@ Selected endpoints:
 | DELETE | `/workshop/{id}`                       | Delete item (author or admin only)       | Yes  |
 
 Internally, workshop data is represented by separate entity types for levels and machines while sharing a common `WorkshopItem` base for metadata.
+
+### Leaderboards
+
+The **Leaderboard** module tracks best solutions for **official levels** (not arbitrary workshop items):
+
+- `LeaderboardLevels` table defines which levels participate in leaderboards:
+  - `Name` – official level name used by the client (e.g. matches `Levels.py`)
+  - `Category` – e.g. `Tutorial`, `Starter`, `Medium`, `Hard` or `Workshop`
+  - `WorkshopItemId` (optional) – link to a workshop item used for multiplayer when applicable
+- `LevelSubmissions` store per-player best performance for a given `LeaderboardLevel`:
+  - `Time` – completion time (as sent by the client)
+  - `NodeCount` – number of states used
+  - `ConnectionCount` – number of transitions used
+
+The leaderboard API supports:
+
+- **Global leaderboard** for a level or all tracked levels
+- **Per-player leaderboard view** (filtered to the current user)
+- Filtering/sorting by:
+  - `time` (default)
+  - `nodes` (fewest nodes first)
+  - `connections` (fewest connections first)
+- Admin-only ability to register new leaderboard levels
+
+The current server-side implementation trusts the metrics sent by the client and is meant primarily for friendly competition rather than anti-cheat-grade security.
+
+Selected endpoints:
+
+| Method | Route                 | Description                                                       | Auth |
+|--------|-----------------------|-------------------------------------------------------------------|------|
+| GET    | `/leaderboard`        | Get leaderboard entries (global or per-player)                    | Yes  |
+| POST   | `/leaderboard`        | Submit a new result for the current user                          | Yes  |
+| POST   | `/leaderboard/level`  | Register a new leaderboard level (name, category, workshop link)  | Yes (Admin) |
+
+#### `GET /leaderboard`
+
+Query parameters:
+
+- `Player` (bool, optional)  
+  - `true` → only entries for the current authenticated user  
+  - `false` or omitted → global leaderboard
+- `levelName` (string, optional)  
+  - If provided, filters to a specific official level name
+- `filter` (string, optional)  
+  - `"nodes"` – sort by node count ascending  
+  - `"connections"` – sort by connection count ascending  
+  - anything else / omitted – sort by time ascending
+
+Examples:
+
+- `GET /leaderboard` – all submissions, sorted by time  
+- `GET /leaderboard?levelName=Palindrome` – all submissions for “Palindrome”  
+- `GET /leaderboard?Player=true&filter=nodes` – current user’s best runs sorted by state count
+
+Response: list of `LevelSubmission` DTOs:
+
+```json
+[
+  {
+    "levelName": "Palindrome",
+    "playerName": "Alice",
+    "time": 12.34,
+    "nodeCount": 6,
+    "connectionCount": 10
+  }
+]
+```
 
 ### Multiplayer Lobbies
 

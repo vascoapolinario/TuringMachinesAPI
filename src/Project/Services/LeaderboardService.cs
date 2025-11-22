@@ -15,41 +15,46 @@ namespace TuringMachinesAPI.Services
             this.db = context;
         }
 
-        public IEnumerable<LevelSubmission> GetLeaderboard(string? LevelName, string? filter)
+        public IEnumerable<LevelSubmission> GetLeaderboard(string? levelName, string? filter)
         {
-            var SubmissionsQuery = db.LevelSubmissions.AsNoTracking();
-
-            int? levelId = db.LeaderboardLevels
-                .AsNoTracking()
-                .Where(l => l.Name == LevelName)
-                .Select(l => l.Id)
-                .FirstOrDefault();
-
-
-            if (levelId.HasValue)
-            {
-                SubmissionsQuery = SubmissionsQuery.Where(l => l.LeaderboardLevelId == levelId);
-            }
-
-            var SubmissionItems = SubmissionsQuery.ToList();
-            if (filter.IsNullOrEmpty())
-            {
-                SubmissionItems.OrderBy(s => s.Time);
-            }
-            else
-            {
-                if (filter!.ToLower().Equals("nodes"))
+            var query =
+                from s in db.LevelSubmissions.AsNoTracking()
+                join p in db.Players.AsNoTracking() on s.PlayerId equals p.Id
+                join lvl in db.LeaderboardLevels.AsNoTracking() on s.LeaderboardLevelId equals lvl.Id
+                select new
                 {
-                    SubmissionItems.OrderBy(s => s.NodeCount);
-                }
-                else if (filter.ToLower().Equals("connections"))
-                {
-                    SubmissionItems.OrderBy(s => s.ConnectionCount);
-                }
+                    Submission = s,
+                    PlayerName = p.Username,
+                    LevelName = lvl.Name
+                };
+
+            if (!string.IsNullOrEmpty(levelName))
+            {
+                query = query.Where(x => x.LevelName == levelName);
             }
 
-            return (IEnumerable<LevelSubmission>)SubmissionItems;
+            var normalizedFilter = filter?.ToLowerInvariant();
+            query = normalizedFilter switch
+            {
+                "nodes" => query.OrderBy(x => x.Submission.NodeCount),
+                "connections" => query.OrderBy(x => x.Submission.ConnectionCount),
+                _ => query.OrderBy(x => x.Submission.Time)
+            };
+
+            var result = query
+                .Select(x => new LevelSubmission
+                {
+                    LevelName = x.LevelName,
+                    PlayerName = x.PlayerName,
+                    Time = x.Submission.Time,
+                    NodeCount = x.Submission.NodeCount,
+                    ConnectionCount = x.Submission.ConnectionCount
+                })
+                .ToList();
+
+            return result;
         }
+
 
         public IEnumerable<LevelSubmission> GetPlayerLeaderboard(int playerId, string? LevelName, string? Filter)
         {
@@ -103,6 +108,32 @@ namespace TuringMachinesAPI.Services
                 Time = time,
                 NodeCount = nodeCount,
                 ConnectionCount = connectionCount
+            };
+        }
+
+        public LeaderboardLevel? AddLeaderboardLevel(string name, string category, int? workshopItemId)
+        {
+            var existingLevel = db.LeaderboardLevels
+                .AsNoTracking()
+                .FirstOrDefault(l => l.Name.Equals(name));
+            if (existingLevel != null)
+            {
+                return null;
+            }
+            var newLevel = new Entities.LeaderboardLevel
+            {
+                Name = name,
+                Category = category,
+                WorkshopItemId = workshopItemId
+            };
+            db.LeaderboardLevels.Add(newLevel);
+            db.SaveChanges();
+            return new LeaderboardLevel
+            {
+                Id = newLevel.Id,
+                Name = newLevel.Name,
+                Category = newLevel.Category,
+                WorkshopItemId = newLevel.WorkshopItemId
             };
         }
     }
