@@ -22,16 +22,16 @@ namespace TuringMachinesAPI.Controllers
         [ProducesResponseType(typeof(IEnumerable<LevelSubmission>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
-        public IActionResult GetLeaderboard(bool? Player, string? levelName, string? filter)
+        public IActionResult GetLeaderboard(bool? Player, string? levelName)
         {
             if (Player == null || Player == false)
             {
-                return Ok(leaderboardService.GetLeaderboard(levelName, filter));
+                return Ok(leaderboardService.GetLeaderboard(levelName));
             }
             else
             {
                 int PlayerId = int.Parse(User.FindFirst("id")!.Value);
-                return Ok(leaderboardService.GetPlayerLeaderboard(PlayerId, levelName, filter));
+                return Ok(leaderboardService.GetPlayerLeaderboard(PlayerId, levelName));
             }
         }
 

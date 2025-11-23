@@ -15,7 +15,7 @@ namespace TuringMachinesAPI.Services
             this.db = context;
         }
 
-        public IEnumerable<LevelSubmission> GetLeaderboard(string? levelName, string? filter)
+        public IEnumerable<LevelSubmission> GetLeaderboard(string? levelName)
         {
             var query =
                 from s in db.LevelSubmissions.AsNoTracking()
@@ -33,13 +33,10 @@ namespace TuringMachinesAPI.Services
                 query = query.Where(x => x.LevelName.ToLower().Contains(levelName.ToLower()));
             }
 
-            var normalizedFilter = filter?.ToLowerInvariant();
-            query = normalizedFilter switch
-            {
-                "nodes" => query.OrderBy(x => x.Submission.NodeCount),
-                "connections" => query.OrderBy(x => x.Submission.ConnectionCount),
-                _ => query.OrderBy(x => x.Submission.Time)
-            };
+            query = query
+                .OrderBy(x => x.Submission.NodeCount)
+                .ThenBy(x => x.Submission.ConnectionCount)
+                .ThenBy(x => x.Submission.Time);
 
             var result = query
                 .Select(x => new LevelSubmission
@@ -56,7 +53,7 @@ namespace TuringMachinesAPI.Services
         }
 
 
-        public IEnumerable<LevelSubmission> GetPlayerLeaderboard(int playerId, string? LevelName, string? Filter)
+        public IEnumerable<LevelSubmission> GetPlayerLeaderboard(int playerId, string? LevelName)
         {
             string? playerName = db.Players
                 .AsNoTracking()
@@ -64,7 +61,7 @@ namespace TuringMachinesAPI.Services
                 .Select(p => p.Username)
                 .FirstOrDefault();
 
-            IEnumerable<LevelSubmission> Leaderboard = GetLeaderboard(LevelName, Filter);
+            IEnumerable<LevelSubmission> Leaderboard = GetLeaderboard(LevelName);
 
             var FilteredLeaderboard = Leaderboard.Where(l => l.PlayerName == playerName);
             return FilteredLeaderboard;

@@ -155,9 +155,9 @@ The leaderboard API supports:
 - **Global leaderboard** for a level or all tracked levels
 - **Per-player leaderboard view** (filtered to the current user)
 - Filtering/sorting by:
-  - `time` (default)
-  - `nodes` (fewest nodes first)
+  - `nodes` (default fewest nodes first)
   - `connections` (fewest connections first)
+  - `time` (tie breaker)
 - Admin-only ability to register new leaderboard levels
 
 The current server-side implementation trusts the metrics sent by the client and is meant primarily for friendly competition rather than anti-cheat-grade security.
@@ -179,16 +179,12 @@ Query parameters:
   - `false` or omitted → global leaderboard
 - `levelName` (string, optional)  
   - If provided, filters to a specific official level name
-- `filter` (string, optional)  
-  - `"nodes"` – sort by node count ascending  
-  - `"connections"` – sort by connection count ascending  
-  - anything else / omitted – sort by time ascending
 
 Examples:
 
 - `GET /leaderboard` – all submissions, sorted by time  
 - `GET /leaderboard?levelName=Palindrome` – all submissions for “Palindrome”  
-- `GET /leaderboard?Player=true&filter=nodes` – current user’s best runs sorted by state count
+- `GET /leaderboard?Player=true` – current user’s best runs
 
 Response: list of `LevelSubmission` DTOs:
 
