@@ -30,7 +30,7 @@ namespace TuringMachinesAPI.Services
 
             if (!string.IsNullOrEmpty(levelName))
             {
-                query = query.Where(x => x.LevelName == levelName);
+                query = query.Where(x => x.LevelName.ToLower().Contains(levelName.ToLower()));
             }
 
             var normalizedFilter = filter?.ToLowerInvariant();
