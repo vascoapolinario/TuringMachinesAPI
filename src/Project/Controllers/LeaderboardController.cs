@@ -58,5 +58,31 @@ namespace TuringMachinesAPI.Controllers
         {
             return Ok(leaderboardService.AddLeaderboardLevel(level.Name, level.Category, level.WorkshopItemId));
         }
+
+        [HttpDelete]
+        [Authorize(Roles = "Admin")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+        public IActionResult DeleteSubmission(string playerName, string levelName)
+        {
+            if (string.IsNullOrEmpty(playerName) || string.IsNullOrEmpty(levelName))
+            {
+                return BadRequest("Player name and level name must be provided.");
+            }
+            
+            var success = leaderboardService.DeletePlayerSubmission(playerName, levelName);
+            if (!success)
+            {
+                return NotFound("Submission not found.");
+            }
+            else
+            {
+                return NoContent();
+            }
+        }
     }
 }

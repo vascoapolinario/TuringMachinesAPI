@@ -154,11 +154,8 @@ The leaderboard API supports:
 
 - **Global leaderboard** for a level or all tracked levels
 - **Per-player leaderboard view** (filtered to the current user)
-- Filtering/sorting by:
-  - `nodes` (default fewest nodes first)
-  - `connections` (fewest connections first)
-  - `time` (tie breaker)
 - Admin-only ability to register new leaderboard levels
+- Admin-only ability to delete player submissions
 
 The current server-side implementation trusts the metrics sent by the client and is meant primarily for friendly competition rather than anti-cheat-grade security.
 
@@ -169,6 +166,7 @@ Selected endpoints:
 | GET    | `/leaderboard`        | Get leaderboard entries (global or per-player)                    | Yes  |
 | POST   | `/leaderboard`        | Submit a new result for the current user                          | Yes  |
 | POST   | `/leaderboard/level`  | Register a new leaderboard level (name, category, workshop link)  | Yes (Admin) |
+| DELETE | `/leaderboard`        | Delete a player's submission                                      | Yes (Admin) |
 
 #### `GET /leaderboard`
 

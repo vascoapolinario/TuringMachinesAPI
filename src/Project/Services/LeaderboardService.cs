@@ -146,5 +146,32 @@ namespace TuringMachinesAPI.Services
                 WorkshopItemId = newLevel.WorkshopItemId
             };
         }
+
+        public bool DeletePlayerSubmission(string playerName, string levelName)
+        {
+            var existingLevel = db.LeaderboardLevels
+                .AsNoTracking()
+                .FirstOrDefault(l => l.Name.Equals(levelName));
+            if (existingLevel == null)
+                {
+                return false;
+            }
+            var existingPlayer = db.Players
+                .AsNoTracking()
+                .FirstOrDefault(p => p.Username.Equals(playerName));
+            if (existingPlayer == null)
+                {
+                return false;
+            }
+            var existingSubmission = db.LevelSubmissions
+                .FirstOrDefault(s => s.PlayerId == existingPlayer.Id && s.LeaderboardLevelId == existingLevel.Id);
+            if (existingSubmission == null)
+                {
+                return false;
+            }
+            db.LevelSubmissions.Remove(existingSubmission);
+            db.SaveChanges();
+            return true;
+        }
     }
 }
