@@ -21,8 +21,7 @@ namespace TuringMachinesAPI.Dtos
         [Required]
         public string TargetEntityType { get; set; } = String.Empty;
 
-        [Required]
-        public int TargetEntityId { get; set; }
+        public int? TargetEntityId { get; set; } = null;
 
         [Required]
         public string TargetEntityName { get; set; } = String.Empty;

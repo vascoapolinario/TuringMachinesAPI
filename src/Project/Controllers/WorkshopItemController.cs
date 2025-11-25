@@ -180,13 +180,13 @@ namespace TuringMachinesAPI.Controllers
             {
                 return NotFound($"Workshop item with ID {WorkshopItemId} not found.");
             }
+
+            await _adminLogsService.CreateAdminLog(ActorId: UserId, ActionType.Delete, entityType, WorkshopItemId);
             bool deleted = _service.DeleteWorkshopItem(WorkshopItemId, UserId);
             if (!deleted)
             {
                 return Forbid();
             }
-
-            await _adminLogsService.CreateAdminLog(ActorId: UserId, ActionType.Delete, entityType, WorkshopItemId);
             return Ok();
         }
     }

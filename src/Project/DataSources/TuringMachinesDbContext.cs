@@ -54,8 +54,8 @@ namespace TuringMachinesAPI.DataSources
                 .HasOne<Player>()
                 .WithMany()
                 .HasForeignKey(l => l.ActorId)
-                .IsRequired(true)
-                .OnDelete(deleteBehavior: DeleteBehavior.Restrict);
+                .IsRequired(false)
+                .OnDelete(deleteBehavior: DeleteBehavior.SetNull);
         }
 
         public virtual DbSet<LevelWorkshopItem> Levels => Set<LevelWorkshopItem>();

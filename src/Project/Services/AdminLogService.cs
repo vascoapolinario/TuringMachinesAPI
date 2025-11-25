@@ -16,22 +16,28 @@ namespace TuringMachinesAPI.Services
             db = dbContext;
         }
 
-        public async Task<Dtos.AdminLog?> CreateAdminLog(int ActorId, ActionType Action, TargetEntityType TargetType, int TargetEntityId)
+        public async Task<Dtos.AdminLog?> CreateAdminLog(int ActorId, ActionType Action, TargetEntityType TargetType, int? TargetEntityId)
         {
             var actor = db.Players.Find(ActorId);
-            string TargetEntityName;
+            if (TargetEntityId == null)
+            {
+                return null;
+            }
+            string TargetEntityName = GetTargetEntityName(TargetType, TargetEntityId);
             if (actor == null) return null;
 
             var entity = new Entities.AdminLog
             {
                 ActorId = ActorId,
+                ActorName = actor.Username,
+                ActorRole = actor.Role,
                 Action = Action,
                 TargetEntityType = TargetType,
                 TargetEntityId = TargetEntityId,
+                TargetEntityName = TargetEntityName,
                 DoneAtUtc = DateTime.UtcNow
             };
 
-            TargetEntityName = GetTargetEntityName(entity.TargetEntityType, entity.TargetEntityId);
             db.AdminLogs.Add(entity);
             db.SaveChanges();
             
@@ -60,19 +66,32 @@ namespace TuringMachinesAPI.Services
                 .Where(p => actorIds.Contains(p.Id))
                 .ToDictionary(p => p.Id);
 
-            return logs.Select(log =>
+            if (actors.Count == 0)
             {
-                actors.TryGetValue(log.ActorId, out var actor);
-                string TargetEntityName = GetTargetEntityName(log.TargetEntityType, log.TargetEntityId);
-                return new Dtos.AdminLog
+                return logs.Select(log => new Dtos.AdminLog
                 {
                     Id = log.Id,
-                    ActorName = actor?.Username ?? "Unknown",
-                    ActorRole = actor?.Role ?? "User",
+                    ActorName = "Unknown",
+                    ActorRole = "Unknown",
                     Action = log.Action.ToString(),
                     TargetEntityType = log.TargetEntityType.ToString(),
                     TargetEntityId = log.TargetEntityId,
-                    TargetEntityName = TargetEntityName,
+                    TargetEntityName = log.TargetEntityName,
+                    DoneAt = log.DoneAtUtc
+                }).ToList();
+            }
+
+            return logs.Select(log =>
+            {
+                return new Dtos.AdminLog
+                {
+                    Id = log.Id,
+                    ActorName = log.ActorName,
+                    ActorRole = log.ActorRole,
+                    Action = log.Action.ToString(),
+                    TargetEntityType = log.TargetEntityType.ToString(),
+                    TargetEntityId = log.TargetEntityId,
+                    TargetEntityName = log.TargetEntityName,
                     DoneAt = log.DoneAtUtc
                 };
             }).ToList();
@@ -80,24 +99,21 @@ namespace TuringMachinesAPI.Services
 
         public IEnumerable<Dtos.AdminLog> GetAdminLogsByActorName(string actorName)
         {
-            var actor = db.Players.FirstOrDefault(a => a.Username.Contains(actorName));
-            if (actor == null) return Enumerable.Empty<Dtos.AdminLog>();
-
-            var logs = db.AdminLogs.Where(log => log.ActorId == actor.Id);
-
-            var log = logs.First();
-            string TargetEntityName = GetTargetEntityName(log.TargetEntityType, log.TargetEntityId);
+            var logs = db.AdminLogs
+                .Where(l => l.ActorName.Contains(actorName))
+                .OrderByDescending(l => l.DoneAtUtc)
+                .ToList();
             return logs.Select(log => new Dtos.AdminLog
             {
                 Id = log.Id,
-                ActorName = actor.Username,
-                ActorRole = actor.Role,
+                ActorName = log.ActorName,
+                ActorRole = log.ActorRole,
                 Action = log.Action.ToString(),
                 TargetEntityType = log.TargetEntityType.ToString(),
                 TargetEntityId = log.TargetEntityId,
-                TargetEntityName = TargetEntityName,
+                TargetEntityName = log.TargetEntityName,
                 DoneAt = log.DoneAtUtc
-            });
+            }).ToList();
         }
 
         public bool DeleteAdminLog(int id)
@@ -122,7 +138,7 @@ namespace TuringMachinesAPI.Services
             return true;
         }
 
-        private string GetTargetEntityName(TargetEntityType type, int id)
+        private string GetTargetEntityName(TargetEntityType type, int? id)
         {
             return type switch
             {

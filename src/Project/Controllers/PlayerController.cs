@@ -135,12 +135,13 @@ namespace TuringMachinesAPI.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        public IActionResult DeletePlayer(int id)
+        public async Task<IActionResult> DeletePlayer(int id)
         {
             int playerId = int.Parse(_playerService.GetClaimsFromUser(User).Id ?? "-1");
             if (!_playerService.IsAdmin(playerId) && playerId != id)
                 return Forbid("You do not have permission to delete this player.");
 
+            await adminLogService.CreateAdminLog(ActorId: playerId, ActionType.Delete, TargetEntityType.Player, id);
             var success = _playerService.DeletePlayer(id);
             if (!success)
                 return NotFound($"Player with ID {id} not found.");

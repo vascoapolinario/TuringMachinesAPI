@@ -10,8 +10,13 @@ namespace TuringMachinesAPI.Entities
         [Key]
         public int Id { get; set; }
 
+        public int? ActorId { get; set; } = null;
+
         [Required]
-        public int ActorId { get; set; }
+        public string ActorName { get; set; } = string.Empty;
+
+        [Required]
+        public string ActorRole { get; set; } = "User";
 
         [Required]
         public ActionType Action { get; set; }
@@ -19,8 +24,10 @@ namespace TuringMachinesAPI.Entities
         [Required]
         public TargetEntityType TargetEntityType { get; set; }
 
+        public int? TargetEntityId { get; set; } = null;
+
         [Required]
-        public int TargetEntityId { get; set; }
+        public string TargetEntityName { get; set; } = string.Empty;
 
         [Required]
         public DateTime DoneAtUtc { get; set; } = DateTime.UtcNow;
