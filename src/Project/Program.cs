@@ -138,8 +138,11 @@ builder.Services.AddDbContext<TuringMachinesDbContext>(o =>
     o.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddSignalR();
+
 builder.Services.AddSingleton<ICryptoService, AesCryptoService>();
 builder.Services.AddSingleton<DiscordWebhookService>();
+
+builder.Services.AddScoped<AdminLogService>();
 builder.Services.AddScoped<WorkshopItemService>();
 builder.Services.AddScoped<LobbyService>();
 builder.Services.AddScoped<PlayerService>();

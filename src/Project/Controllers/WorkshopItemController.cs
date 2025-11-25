@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
 using TuringMachinesAPI.Dtos;
 using TuringMachinesAPI.Services;
+using TuringMachinesAPI.Enums;
 
 namespace TuringMachinesAPI.Controllers
 {
@@ -12,11 +13,13 @@ namespace TuringMachinesAPI.Controllers
     {
         private readonly WorkshopItemService _service;
         private readonly DiscordWebhookService _discordWebhookService;
+        private readonly AdminLogService _adminLogsService;
 
-        public WorkshopItemController(WorkshopItemService service, DiscordWebhookService discordwebhookservice)
+        public WorkshopItemController(WorkshopItemService service, DiscordWebhookService discordwebhookservice, AdminLogService adminLogsService)
         {
             _service = service;
             _discordWebhookService = discordwebhookservice;
+            _adminLogsService = adminLogsService;
         }
 
         /// <summary>
@@ -69,6 +72,7 @@ namespace TuringMachinesAPI.Controllers
                 return BadRequest(new { message = "Invalid workshop item data." });
 
             await _discordWebhookService.NotifyNewWorkshopItemAsync(item.Type, item.Name, User.Identity!.Name!);
+            await _adminLogsService.CreateAdminLog(ActorId: UserId, ActionType.Create, TargetEntityType.WorkshopLevel, item.Id);
             return CreatedAtAction(nameof(GetById), new { id = item.Id }, item);
         }
 
@@ -157,10 +161,21 @@ namespace TuringMachinesAPI.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
-        public IActionResult Delete(int WorkshopItemId)
+        public async Task<IActionResult> DeleteAsync(int WorkshopItemId)
         {
             int UserId = int.Parse(User.FindFirst("id")!.Value);
             var item = _service.GetById(WorkshopItemId, UserId);
+
+            TargetEntityType entityType;
+            if (item is WorkshopItem workshopItem)
+            {
+                entityType = workshopItem.Type == "Level" ? TargetEntityType.WorkshopLevel : TargetEntityType.WorkshopMachine;
+            }
+            else
+            {
+                entityType = TargetEntityType.WorkshopMachine;
+            }
+
             if (item is null)
             {
                 return NotFound($"Workshop item with ID {WorkshopItemId} not found.");
@@ -170,6 +185,8 @@ namespace TuringMachinesAPI.Controllers
             {
                 return Forbid();
             }
+
+            await _adminLogsService.CreateAdminLog(ActorId: UserId, ActionType.Delete, entityType, WorkshopItemId);
             return Ok();
         }
     }

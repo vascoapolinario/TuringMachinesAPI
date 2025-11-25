@@ -24,6 +24,7 @@ Game Project: [TuringSandbox](https://github.com/vascoapolinario/Turing-Sandbox-
   - [Leaderboards](#Leaderboards)
   - [Multiplayer Lobbies](#multiplayer-lobbies)
   - [Health Checks](#health-checks)
+  - [Admin Logs](#admin-logs)
 - [Real-Time Collaboration (SignalR)](#real-time-collaboration-signalr)
 - [Security & Data Handling](#security--data-handling)
 - [Validation & Content Filtering](#validation--content-filtering)
@@ -45,10 +46,12 @@ The main responsibilities are split across:
   - `LeaderboardController` – Leaderboard for player submission of levels
   - `LobbyController` – creation and management of multiplayer lobbies
   - `HealthController` – simple health/keep-alive endpoint
+  - `AdminLogs` – controller to track actions like creations, deletions and updates
 - **Services**
   - `PlayerService` – business logic around players, credentials and JWT handling
   - `WorkshopItemService` – business logic for level/machine workshop items
   - `LobbyService` – lobby lifecycle and rules (joining, leaving, starting, kicking)
+  - `AdminLogsService` – service to manage and create admin logs
   - `DiscordWebhookService` – integrates with Discord for notifications (user created, workshop item created, lobby created)
   - `ICryptoService` / `AesCryptoService` – encryption for sensitive data
 - **Real-time hub**
@@ -249,6 +252,62 @@ public class HealthController : ControllerBase
 
 If you host your own instance, you can point an uptime monitor at this endpoint and/or expose your own status page.
 
+### Admin Logs
+
+The **Admin Logs** module records important actions performed across the API, so you can see **who did what, to which entity, and when**.
+
+Each log entry stores:
+
+- **Actor** – the player who performed the action (name + role)
+- **Action** – a typed action such as `Create`, `Update`, `Delete`, etc. (`ActionType` enum)
+- **Target entity** – type + id of the affected entity (`TargetEntityType`, `TargetEntityId`)
+  - Examples: `Player`, `Lobby`, `WorkshopLevel`, `WorkshopMachine`, `LeaderboardLevel`, `LeaderboardSubmission`
+- **TargetEntityName** – a human-friendly name resolved from the database (e.g. player username, lobby name, workshop item name)
+- **DoneAt** – UTC timestamp of when the action occurred
+
+Logs are created server-side via the `AdminLogService` whenever an operation is performed (for example: deleting a player, removing a workshop item, deleting a lobby, etc.). This gives operators of a deployment a simple audit trail for debugging or moderation.
+
+All log endpoints are **admin-only** and guarded by role-based authorization.
+
+Selected endpoints:
+
+| Method | Route                    | Description                                      | Auth      |
+|--------|--------------------------|--------------------------------------------------|-----------|
+| GET    | `/logs`                  | List all admin logs, newest first               | Yes (Admin) |
+| GET    | `/logs/actor/{actorName}` | List logs performed by a specific actor (name) | Yes (Admin) |
+| DELETE | `/logs/{id}`             | Delete a single log entry by id                 | Yes (Admin) |
+| DELETE | `/logs`                  | Delete all logs or those older than a given timespan | Yes (Admin) |
+
+#### `GET /logs`
+
+Returns a list of admin log DTOs:
+
+```json
+[
+  {
+    "id": 42,
+    "actorName": "AdminUser",
+    "actorRole": "Admin",
+    "action": "Delete",
+    "targetEntityType": "WorkshopLevel",
+    "targetEntityId": 17,
+    "targetEntityName": "Unary Increment Level",
+    "doneAt": "2025-11-25T10:23:45Z"
+  }
+]
+```
+#### `GET /logs/actor/{actorName}`
+
+Filters the same structure by actor username, making it easy to inspect everything a specific admin account has done.
+
+#### `DELETE /logs/{id}`
+
+Removes a single log entry by id. Intended for cleanup or correcting mistakes in the audit trail when necessary.
+
+#### `DELETE /logs?timeSpan=…`
+
+Deletes logs in bulk. If a `timeSpan` query parameter is provided (e.g. `7.00:00:00` for 7 days), only logs **older** than that span are removed; otherwise, all logs are deleted. This can be used to implement a log retention policy for self-hosted deployments.
+
 ---
 
 ## Real-Time Collaboration (SignalR)
@@ -369,6 +428,8 @@ A condensed view of the API surface:
 | Workshop   | `WorkshopItemController` | `/workshop`    |
 | Lobbies    | `LobbyController`        | `/lobbies`     |
 | Real-time  | `LobbyHub` (SignalR)     | `/hubs/lobby`* |
+| Leaderboard | `LeaderboardController` | `/leaderboard` |
+| AdminLogs  | `AdminLogsController`    | `/logs`        |
 
 \* The exact hub route depends on the SignalR configuration in `Program.cs` / `Startup`.
 
@@ -405,6 +466,8 @@ Currently the project has tests for:
 - PlayerServiceTests
 - WorkshopItemServiceTests
 - LobbyServiceTests
+- AdminLogService
+- LeaderboardService
 
 ### GitHub Actions
 Tests are run in GitHub Actions using:

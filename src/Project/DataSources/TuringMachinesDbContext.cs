@@ -41,6 +41,21 @@ namespace TuringMachinesAPI.DataSources
                 .HasForeignKey(l => l.LeaderboardLevelId)
                 .IsRequired(true)
                 .OnDelete(deleteBehavior: DeleteBehavior.Cascade);
+
+            builder.Entity<AdminLog>()
+                .Property(p => p.TargetEntityType)
+                .HasConversion(v => v.ToString(), v => Enum.Parse<TargetEntityType>(v));
+
+            builder.Entity<AdminLog>()
+                .Property(p => p.Action)
+                .HasConversion(v => v.ToString(), v => Enum.Parse<ActionType>(v));
+
+            builder.Entity<AdminLog>()
+                .HasOne<Player>()
+                .WithMany()
+                .HasForeignKey(l => l.ActorId)
+                .IsRequired(true)
+                .OnDelete(deleteBehavior: DeleteBehavior.Restrict);
         }
 
         public virtual DbSet<LevelWorkshopItem> Levels => Set<LevelWorkshopItem>();
@@ -51,6 +66,7 @@ namespace TuringMachinesAPI.DataSources
         public virtual DbSet<Entities.Lobby> Lobbies => Set<Entities.Lobby>();
         public virtual DbSet<Entities.LeaderboardLevel> LeaderboardLevels => Set<Entities.LeaderboardLevel>();
         public virtual DbSet<Entities.LevelSubmission> LevelSubmissions => Set<Entities.LevelSubmission>();
+        public virtual DbSet<Entities.AdminLog> AdminLogs => Set<Entities.AdminLog>();
 
     }
 }

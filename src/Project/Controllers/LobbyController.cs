@@ -5,6 +5,7 @@ using TuringMachinesAPI.Services;
 using Microsoft.AspNetCore.SignalR;
 using TuringMachinesAPI.Hubs;
 using System.Threading.Tasks;
+using TuringMachinesAPI.Enums;
 
 namespace TuringMachinesAPI.Controllers
 {
@@ -15,12 +16,14 @@ namespace TuringMachinesAPI.Controllers
         private readonly LobbyService _service;
         private readonly IHubContext<LobbyHub> _hub;
         private readonly DiscordWebhookService _discordWebService;
+        private readonly AdminLogService _adminLogService;
 
-        public LobbyController(LobbyService service, IHubContext<LobbyHub> hub, DiscordWebhookService discordWebService)
+        public LobbyController(LobbyService service, IHubContext<LobbyHub> hub, DiscordWebhookService discordWebService, AdminLogService adminLogService)
         {
             _service = service;
             _hub = hub;
             _discordWebService = discordWebService;
+            _adminLogService = adminLogService;
         }
 
         /// <summary>
@@ -82,6 +85,8 @@ namespace TuringMachinesAPI.Controllers
             });
 
             await _discordWebService.NotifyNewLobbyAsync(User.Identity!.Name!, lobby.Code, lobby.LevelName);
+            await _adminLogService.CreateAdminLog(hostPlayerId, ActionType.Create, TargetEntityType.Lobby, lobby.Id);
+
             return CreatedAtAction(nameof(GetByCode), new { code = lobby.Code }, lobby);
         }
 
@@ -189,6 +194,8 @@ namespace TuringMachinesAPI.Controllers
             {
                 lobbyCode = code
             });
+
+            await _adminLogService.CreateAdminLog(userId, ActionType.Delete, TargetEntityType.Lobby, 0);
 
             return Ok(new { message = "Lobby deleted successfully." });
         }

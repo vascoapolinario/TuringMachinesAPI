@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
 using TuringMachinesAPI.Dtos;
 using TuringMachinesAPI.Services;
+using TuringMachinesAPI.Enums;
 
 namespace TuringMachinesAPI.Controllers
 {
@@ -12,11 +13,13 @@ namespace TuringMachinesAPI.Controllers
     {
         private readonly PlayerService _playerService;
         private readonly DiscordWebhookService discordWebhookService;
+        private readonly AdminLogService adminLogService;
 
-        public PlayersController(PlayerService playerService, DiscordWebhookService discordWebhookService)
+        public PlayersController(PlayerService playerService, DiscordWebhookService discordWebhookService, AdminLogService adminLogService)
         {
             this._playerService = playerService;
             this.discordWebhookService = discordWebhookService;
+            this.adminLogService = adminLogService;
         }
 
         /// <summary>
@@ -73,6 +76,7 @@ namespace TuringMachinesAPI.Controllers
             }
 
             await discordWebhookService.NotifyNewPlayerAsync(created.Username);
+            await adminLogService.CreateAdminLog(ActorId: created.Id, ActionType.Create, TargetEntityType.Player, created.Id);
 
             return CreatedAtAction(nameof(GetPlayerById), new { id = created.Id }, _playerService.NonSensitivePlayer(created));
         }

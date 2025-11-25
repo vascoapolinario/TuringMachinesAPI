@@ -3,6 +3,8 @@ TRUNCATE TABLE public."WorkshopItems" RESTART IDENTITY CASCADE;
 TRUNCATE TABLE public."LevelWorkshopItems" RESTART IDENTITY CASCADE;
 TRUNCATE TABLE public."MachineWorkshopItems" RESTART IDENTITY CASCADE;
 TRUNCATE TABLE public."Lobbies" RESTART IDENTITY CASCADE;
+TRUNCATE TABLE public."AdminLogs" RESTART IDENTITY CASCADE;
+
 
 INSERT INTO public."Players" ("Id", "Username", "Role", "Password")
 VALUES
@@ -18,3 +20,4 @@ VALUES
 (10, 'Judy', 'User', '19uwdt0wa0Q2wYA6U9I9/g==');
 
 SELECT setval(pg_get_serial_sequence('"Players"', 'Id'), COALESCE(MAX("Id"), 1)) FROM "Players";
+SELECT setval(pg_get_serial_sequence('"AdminLogs"', 'Id'), COALESCE(MAX("Id"), 1)) FROM "AdminLogs";
