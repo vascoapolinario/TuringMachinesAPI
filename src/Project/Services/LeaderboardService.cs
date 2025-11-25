@@ -15,7 +15,7 @@ namespace TuringMachinesAPI.Services
             this.db = context;
         }
 
-        public IEnumerable<LevelSubmission> GetLeaderboard(string? levelName)
+        public IEnumerable<LevelSubmission> GetLeaderboard(string? levelName = null)
         {
             var query =
                 from s in db.LevelSubmissions.AsNoTracking()
@@ -53,7 +53,7 @@ namespace TuringMachinesAPI.Services
         }
 
 
-        public IEnumerable<LevelSubmission> GetPlayerLeaderboard(int playerId, string? LevelName)
+        public IEnumerable<LevelSubmission> GetPlayerLeaderboard(int playerId, string? LevelName = null)
         {
             string? playerName = db.Players
                 .AsNoTracking()
@@ -121,7 +121,7 @@ namespace TuringMachinesAPI.Services
             };
         }
 
-        public LeaderboardLevel? AddLeaderboardLevel(string name, string category, int? workshopItemId)
+        public LeaderboardLevel? AddLeaderboardLevel(string name, string category, int? workshopItemId = null)
         {
             var existingLevel = db.LeaderboardLevels
                 .AsNoTracking()
