@@ -93,6 +93,14 @@ namespace TuringMachinesAPI.Services
             {
                 var existingItem = db.LevelSubmissions
                     .First(s => s.PlayerId == playerId && s.LeaderboardLevelId == levelId);
+
+                if (existingItem.NodeCount < nodeCount ||
+                    (existingItem.NodeCount == nodeCount && existingItem.ConnectionCount < connectionCount) ||
+                    (existingItem.NodeCount == nodeCount && existingItem.ConnectionCount == connectionCount && existingItem.Time <= time))
+                {
+                    return null;
+                }
+
                 existingItem.Time = time;
                 existingItem.NodeCount = nodeCount;
                 existingItem.ConnectionCount = connectionCount;

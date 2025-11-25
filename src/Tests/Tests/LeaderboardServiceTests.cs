@@ -89,6 +89,43 @@ namespace TuringMachinesAPITests.Tests
         }
 
         [Fact]
+        public void AddLevelSubmissions_shouldReturnNullWhenBetterSubmissionExists()
+        {
+            var level = service.AddLeaderboardLevel("LevelX", "Starter");
+            Assert.NotNull(level);
+
+            var submission1 = service.AddSubmission(1, "LevelX", 110.0, 9, 5);
+            Assert.NotNull(submission1);
+            var submission2 = service.AddSubmission(1, "LevelX", 115.0, 10, 6);
+            Assert.Null(submission2);
+            var submission3 = service.AddSubmission(1, "LevelX", 110.0, 10, 5);
+
+            var leaderboard = service.GetLeaderboard("LevelX").ToList();
+            Assert.Single(leaderboard);
+            Assert.Equal(submission1!.Time, leaderboard[0].Time);
+        }
+
+        [Fact]
+        public void AddLevelSubmissions_shouldReturnReplaceWhenWorseSubmissionExists()
+        {
+            var level = service.AddLeaderboardLevel("LevelY", "Starter");
+            Assert.NotNull(level);
+
+            var submission1 = service.AddSubmission(1, "LevelY", 120.0, 10, 5);
+            Assert.NotNull(submission1);
+            var submission2 = service.AddSubmission(1, "LevelY", 115.0, 9, 4);
+            Assert.NotNull(submission2);
+            var submission3 = service.AddSubmission(1, "LevelY", 110.0, 9, 3);
+            Assert.NotNull(submission3);
+            var submission4 = service.AddSubmission(1, "LevelY", 105.0, 9, 3);
+            Assert.NotNull(submission4);
+
+            var leaderboard = service.GetLeaderboard("LevelY").ToList();
+            Assert.Single(leaderboard);
+            Assert.Equal(submission4!.Time, leaderboard[0].Time);
+        }
+
+        [Fact]
         public void GetLeaderboard_shouldReturnCorrectlyWithOrder()
         {
             var level = service.AddLeaderboardLevel("Level4", "Starter");
@@ -162,6 +199,5 @@ namespace TuringMachinesAPITests.Tests
             Assert.Empty(playerLeaderboardAfterDeletion);
             Assert.NotEmpty(service.GetPlayerLeaderboard(2, "Level7").ToList());
         }
-
     }
 }
