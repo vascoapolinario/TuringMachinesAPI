@@ -12,6 +12,8 @@ This repository is the **server** side only. The game client (UI) lives in a sep
 
 Game Project: [TuringSandbox](https://github.com/vascoapolinario/Turing-Sandbox-Game)
 
+Website (Made by Gemini) that uses the API: [Turing Sandbox API Dashboard](https://vascoapolinario.github.io/TuringMachinesAPI/)
+
 ---
 
 ## Table of Contents
