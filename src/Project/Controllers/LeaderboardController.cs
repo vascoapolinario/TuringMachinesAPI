@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Threading.Tasks;
 using TuringMachinesAPI.Dtos;
 using TuringMachinesAPI.Services;
 
@@ -11,10 +12,12 @@ namespace TuringMachinesAPI.Controllers
     public class LeaderboardController : ControllerBase
     {
         private readonly LeaderboardService leaderboardService;
+        private readonly AdminLogService adminLogService;
 
-        public LeaderboardController(LeaderboardService leaderboardService)
+        public LeaderboardController(LeaderboardService leaderboardService, AdminLogService adminLogService)
         {
             this.leaderboardService = leaderboardService;
+            this.adminLogService = adminLogService;
         }
 
         [HttpGet]
@@ -41,10 +44,16 @@ namespace TuringMachinesAPI.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
-        public IActionResult AddSubmission([FromBody] LevelSubmission submission)
+        public async Task<IActionResult> AddSubmission([FromBody] LevelSubmission submission)
         {
             int PlayerId = int.Parse(User.FindFirst("id")!.Value);
-            return Ok(leaderboardService.AddSubmission(PlayerId, submission.LevelName, submission.Time, submission.NodeCount, submission.ConnectionCount));
+            LevelSubmission? Lvlsubmission = leaderboardService.AddSubmission(PlayerId, submission.LevelName, submission.Time, submission.NodeCount, submission.ConnectionCount);
+            if (Lvlsubmission == null)
+            {
+                return BadRequest("Invalid submission data.");
+            }
+            await adminLogService.CreateAdminLog(PlayerId, Enums.ActionType.Create, Enums.TargetEntityType.LeaderboardSubmission, Lvlsubmission.Id);
+            return Ok(Lvlsubmission);
         }
 
         [HttpPost("level")]
@@ -54,9 +63,15 @@ namespace TuringMachinesAPI.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
-        public IActionResult AddLevel([FromBody] LeaderboardLevel level)
+        public async Task<IActionResult> AddLevel([FromBody] LeaderboardLevel level)
         {
-            return Ok(leaderboardService.AddLeaderboardLevel(level.Name, level.Category, level.WorkshopItemId));
+            LeaderboardLevel? AddedLevel = leaderboardService.AddLeaderboardLevel(level.Name, level.Category, level.WorkshopItemId);
+            if (AddedLevel == null)
+            {
+                return BadRequest("Invalid level data.");
+            }
+            await adminLogService.CreateAdminLog(int.Parse(User.FindFirst("id")!.Value), Enums.ActionType.Create, Enums.TargetEntityType.LeaderboardLevel, AddedLevel.Id);
+            return Ok(AddedLevel);
         }
 
         [HttpDelete]
@@ -67,7 +82,7 @@ namespace TuringMachinesAPI.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
-        public IActionResult DeleteSubmission(string playerName, string levelName)
+        public async Task<IActionResult> DeleteSubmission(string playerName, string levelName)
         {
             if (string.IsNullOrEmpty(playerName) || string.IsNullOrEmpty(levelName))
             {
@@ -81,6 +96,7 @@ namespace TuringMachinesAPI.Controllers
             }
             else
             {
+                await adminLogService.CreateAdminLog(int.Parse(User.FindFirst("id")!.Value), Enums.ActionType.Delete, Enums.TargetEntityType.LeaderboardSubmission, 0);
                 return NoContent();
             }
         }

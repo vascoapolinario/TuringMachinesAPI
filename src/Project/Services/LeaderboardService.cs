@@ -121,6 +121,7 @@ namespace TuringMachinesAPI.Services
 
             return new LevelSubmission
             {
+                Id = newItem.Id,
                 LevelName = levelName,
                 PlayerName = playerName!,
                 Time = time,
