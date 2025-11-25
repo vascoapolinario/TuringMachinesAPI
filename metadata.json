@@ -1,0 +1,5 @@
+{
+  "name": "Backup TuringDashboard",
+  "description": "A comprehensive dashboard and simulator for the Turing Machines Game API.",
+  "requestFramePermissions": []
+}
