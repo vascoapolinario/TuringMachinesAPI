@@ -61,6 +61,7 @@ namespace TuringMachinesAPITests.Tests
             Assert.True(result.Id > 0);
             Assert.Equal("testUser", result.Username);
             Assert.Equal("1234", result.Password);
+            Assert.Equal(DateTime.UtcNow, result.CreatedAt, TimeSpan.FromSeconds(5));
         }
 
         [Fact]
@@ -102,6 +103,7 @@ namespace TuringMachinesAPITests.Tests
 
             Assert.NotNull(result);
             Assert.Equal("loginUser", result!.Username);
+            Assert.Equal(DateTime.UtcNow, result.LastLogin!.Value, TimeSpan.FromSeconds(5));
         }
 
         [Fact]

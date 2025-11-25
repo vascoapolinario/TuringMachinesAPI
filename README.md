@@ -94,6 +94,7 @@ The **Players** module handles registration, login and basic identity:
 - Expose a `/players/verify` endpoint to validate the token and fetch basic user info
 - `NonSensitivePlayer` DTOs ensure passwords never leave the server
 - Only admins are able to see the list of all players or players by id
+- The DateTime of AccountCreation and Last Login are saved in the db and acessed through the get requests (By Admins) Or by the player themselves with the verify GET.
 
 Key endpoints:
 

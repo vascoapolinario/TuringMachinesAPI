@@ -33,7 +33,9 @@ namespace TuringMachinesAPI.Services
                     Id = p.Id,
                     Username = p.Username,
                     Password = CryptoService.Decrypt(p.Password),
-                    Role = p.Role
+                    Role = p.Role,
+                    CreatedAt = p.CreatedAt,
+                    LastLogin = p.LastLogin
                 })
                 .ToList();
         }
@@ -50,7 +52,9 @@ namespace TuringMachinesAPI.Services
                 Id = entity.Id,
                 Username = entity.Username,
                 Password = CryptoService.Decrypt(entity.Password),
-                Role = entity.Role
+                Role = entity.Role,
+                CreatedAt = entity.CreatedAt,
+                LastLogin = entity.LastLogin
             };
         }
 
@@ -76,7 +80,9 @@ namespace TuringMachinesAPI.Services
             var entity = new Entities.Player
             {
                 Username = player.Username,
-                Password = CryptoService.Encrypt(player.Password)
+                Password = CryptoService.Encrypt(player.Password),
+                CreatedAt = DateTime.UtcNow,
+                LastLogin = null
             };
             db.Players.Add(entity);
             db.SaveChanges();
@@ -86,8 +92,25 @@ namespace TuringMachinesAPI.Services
 
         public Player? Authenticate(string username, string password)
         {
-            return GetAllPlayers()
+
+            var Player = GetAllPlayers()
                 .FirstOrDefault(p => p.Username == username && p.Password == password);
+            if (Player is not null)
+            {
+                var entity = db.Players.First(p => p.Id == Player.Id);
+                entity.LastLogin = DateTime.UtcNow;
+                db.SaveChanges();
+                return new Player
+                {
+                    Id = Player.Id,
+                    Username = Player.Username,
+                    Role = Player.Role,
+                    CreatedAt = Player.CreatedAt,
+                    LastLogin = entity.LastLogin
+                };
+            }
+
+            return Player;
         }
 
         public string GenerateJwtToken(Player player)
@@ -130,8 +153,9 @@ namespace TuringMachinesAPI.Services
                 Id = SensitivePlayer.Id,
                 Username = SensitivePlayer.Username,
                 Password = "",
-                Role = SensitivePlayer.Role
-
+                Role = SensitivePlayer.Role,
+                CreatedAt = SensitivePlayer.CreatedAt,
+                LastLogin = SensitivePlayer.LastLogin
             };
         }
 

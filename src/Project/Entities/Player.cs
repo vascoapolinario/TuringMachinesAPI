@@ -19,5 +19,10 @@ namespace TuringMachinesAPI.Entities
 
         [Required]
         public string? Password { get; set; }
+
+        [Required]
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        public DateTime? LastLogin { get; set; }
     }
 }
