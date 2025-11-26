@@ -182,5 +182,19 @@ namespace TuringMachinesAPI.Services
             db.SaveChanges();
             return true;
         }
+
+        public int? GetSubmissionId(string playerName, string levelName)
+        {
+            var submissionId = (from s in db.LevelSubmissions.AsNoTracking()
+                                join p in db.Players.AsNoTracking() on s.PlayerId equals p.Id
+                                join lvl in db.LeaderboardLevels.AsNoTracking() on s.LeaderboardLevelId equals lvl.Id
+                                where p.Username.Equals(playerName) && lvl.Name.Equals(levelName)
+                                select s.Id).FirstOrDefault();
+            if (submissionId == 0)
+            {
+                return null;
+            }
+            return submissionId;
+        }
     }
 }

@@ -186,16 +186,21 @@ namespace TuringMachinesAPI.Controllers
         public async Task<IActionResult> Delete(string code)
         {
             int userId = int.Parse(User.FindFirst("id")!.Value);
+            AdminLog? log = await _adminLogService.CreateAdminLog(userId, ActionType.Delete, TargetEntityType.Lobby, 0);
             bool deleted = _service.DeleteLobby(code, userId);
             if (!deleted)
+            {
+                if (log != null)
+                {
+                    _adminLogService.DeleteAdminLog(log.Id);
+                }
                 return NotFound(new { message = $"Lobby with code {code} not found or insufficient permissions." });
+            }
 
             await _hub.Clients.All.SendAsync("LobbyDeleted", new
             {
                 lobbyCode = code
             });
-
-            await _adminLogService.CreateAdminLog(userId, ActionType.Delete, TargetEntityType.Lobby, 0);
 
             return Ok(new { message = "Lobby deleted successfully." });
         }
@@ -236,6 +241,7 @@ namespace TuringMachinesAPI.Controllers
                 kickedPlayerName = targetPlayerName 
             });
 
+            await _adminLogService.CreateAdminLog(requesterId, ActionType.Kick, TargetEntityType.Player, targetPlayerId);
             return Ok(new { message = $"Player {targetPlayerId} was kicked from lobby {code}." });
         }
     }
