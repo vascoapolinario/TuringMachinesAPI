@@ -89,18 +89,14 @@ namespace TuringMachinesAPI.Controllers
                 return BadRequest("Player name and level name must be provided.");
             }
             
-            AdminLog? log = await adminLogService.CreateAdminLog(int.Parse(User.FindFirst("id")!.Value), Enums.ActionType.Delete, Enums.TargetEntityType.LeaderboardSubmission, 0);
             var success = leaderboardService.DeletePlayerSubmission(playerName, levelName);
             if (!success)
             {
-                if (log != null)
-                {
-                    adminLogService.DeleteAdminLog(log.Id);
-                }
                 return NotFound("Submission not found.");
             }
             else
             {
+                await adminLogService.CreateAdminLog(int.Parse(User.FindFirst("id")!.Value), Enums.ActionType.Delete, Enums.TargetEntityType.LeaderboardSubmission, 0);
                 return NoContent();
             }
         }

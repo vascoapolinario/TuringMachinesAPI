@@ -4,7 +4,6 @@
     {
         Create,
         Update,
-        Delete,
-        Kick
+        Delete
     }
 }
