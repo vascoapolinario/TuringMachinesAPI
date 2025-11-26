@@ -181,10 +181,14 @@ namespace TuringMachinesAPI.Controllers
                 return NotFound($"Workshop item with ID {WorkshopItemId} not found.");
             }
 
-            await _adminLogsService.CreateAdminLog(ActorId: UserId, ActionType.Delete, entityType, WorkshopItemId);
+            AdminLog? log = await _adminLogsService.CreateAdminLog(ActorId: UserId, ActionType.Delete, entityType, WorkshopItemId);
             bool deleted = _service.DeleteWorkshopItem(WorkshopItemId, UserId);
             if (!deleted)
             {
+                if (log != null)
+                {
+                    _adminLogsService.DeleteAdminLog(log.Id);
+                }
                 return Forbid();
             }
             return Ok();

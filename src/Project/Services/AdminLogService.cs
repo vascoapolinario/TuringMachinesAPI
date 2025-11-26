@@ -140,14 +140,23 @@ namespace TuringMachinesAPI.Services
 
         private string GetTargetEntityName(TargetEntityType type, int? id)
         {
+            if (type == TargetEntityType.LeaderboardSubmission)
+            {
+                Entities.LevelSubmission? levelSubmission = db.LevelSubmissions.Where(ls => ls.Id == id).FirstOrDefault();
+                if (levelSubmission != null)
+                {
+                    var playerName = db.Players.Where(p => p.Id == levelSubmission.PlayerId).Select(p => p.Username).FirstOrDefault() ?? "Unknown Player";
+                    var leaderboardLevelName = db.LeaderboardLevels.Where(lb => lb.Id == levelSubmission.LeaderboardLevelId).Select(lb => lb.Name).FirstOrDefault() ?? "Unknown Level";
+                    return $"Submission Id:{id} | Player: {playerName} | Level: {leaderboardLevelName}";
+                }
+            }
+
             return type switch
             {
                 TargetEntityType.WorkshopLevel or TargetEntityType.WorkshopMachine =>
                     db.WorkshopItems.Where(wi => wi.Id == id).Select(wi => wi.Name).FirstOrDefault() ?? "Unknown",
                 TargetEntityType.Lobby =>
                     db.Lobbies.Where(l => l.Id == id).Select(l => l.Name).FirstOrDefault() ?? "Unknown",
-                TargetEntityType.LeaderboardSubmission =>
-                    $"Leaderboard Submission Id:{id}",
                 TargetEntityType.LeaderboardLevel =>
                     db.LeaderboardLevels.Where(lb => lb.Id == id).Select(lb => lb.Name).FirstOrDefault() ?? "Unknown",
                 TargetEntityType.Player =>

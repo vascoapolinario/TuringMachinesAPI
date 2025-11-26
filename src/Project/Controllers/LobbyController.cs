@@ -186,16 +186,22 @@ namespace TuringMachinesAPI.Controllers
         public async Task<IActionResult> Delete(string code)
         {
             int userId = int.Parse(User.FindFirst("id")!.Value);
+            Lobby? lobby = _service.GetByCode(code);
+            AdminLog? log = await _adminLogService.CreateAdminLog(userId, ActionType.Delete, TargetEntityType.Lobby, lobby?.Id);
+
             bool deleted = _service.DeleteLobby(code, userId);
+
             if (!deleted)
+            {
+                _adminLogService.DeleteAdminLog(log!.Id);
                 return NotFound(new { message = $"Lobby with code {code} not found or insufficient permissions." });
+            }
 
             await _hub.Clients.All.SendAsync("LobbyDeleted", new
             {
                 lobbyCode = code
             });
 
-            await _adminLogService.CreateAdminLog(userId, ActionType.Delete, TargetEntityType.Lobby, 0);
 
             return Ok(new { message = "Lobby deleted successfully." });
         }
