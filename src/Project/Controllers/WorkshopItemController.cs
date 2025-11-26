@@ -72,7 +72,12 @@ namespace TuringMachinesAPI.Controllers
                 return BadRequest(new { message = "Invalid workshop item data." });
 
             await _discordWebhookService.NotifyNewWorkshopItemAsync(item.Type, item.Name, User.Identity!.Name!);
-            await _adminLogsService.CreateAdminLog(ActorId: UserId, ActionType.Create, TargetEntityType.WorkshopLevel, item.Id);
+            
+            TargetEntityType entityType = item.Type == "Level" ? 
+                TargetEntityType.WorkshopLevel : 
+                TargetEntityType.WorkshopMachine;
+
+            await _adminLogsService.CreateAdminLog(ActorId: UserId, ActionType.Create, entityType, item.Id);
             return CreatedAtAction(nameof(GetById), new { id = item.Id }, item);
         }
 
