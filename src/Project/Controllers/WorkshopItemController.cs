@@ -73,7 +73,7 @@ namespace TuringMachinesAPI.Controllers
 
             await _discordWebhookService.NotifyNewWorkshopItemAsync(item.Type, item.Name, User.Identity!.Name!);
             
-            TargetEntityType entityType = item.Type == "Level" ? 
+            TargetEntityType entityType = item.Type == WorkshopItemType.Level.ToString() ? 
                 TargetEntityType.WorkshopLevel : 
                 TargetEntityType.WorkshopMachine;
 
