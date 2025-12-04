@@ -6,7 +6,7 @@ import { Card } from '../components/Card';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { 
   Search, Trash2, User, ShieldAlert, Lock, Calendar, Clock, 
-  Download, Users, Shield, UserPlus, FileDown
+  Download, Users, Shield, UserPlus, FileDown, RefreshCw
 } from 'lucide-react';
 import { UserContext } from '../App';
 
@@ -16,15 +16,18 @@ export const Players: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
   
   // Dialog State
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [playerToDelete, setPlayerToDelete] = useState<number | null>(null);
 
-  const fetchPlayers = async () => {
+  const fetchPlayers = async (force = false) => {
     try {
-      setLoading(true);
-      const data = await api.players.getAll();
+      if (force) setRefreshing(true);
+      else setLoading(true);
+      
+      const data = await api.players.getAll(force);
       setPlayers(data);
     } catch (e: any) {
       if (e.message?.includes('403') || e.message?.includes('Forbidden')) {
@@ -34,6 +37,7 @@ export const Players: React.FC = () => {
       }
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -197,13 +201,22 @@ export const Players: React.FC = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <button 
-                onClick={handleExportCSV}
-                className="flex items-center gap-2 px-4 py-3 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-xl transition-all border border-slate-800 hover:border-slate-700 shadow-sm font-medium text-sm group"
-          >
-                <FileDown size={16} className="text-slate-500 group-hover:text-brand-400 transition-colors" />
-                Export CSV
-          </button>
+          <div className="flex gap-2">
+              <button 
+                    onClick={() => fetchPlayers(true)}
+                    className="p-3 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-xl transition-all border border-slate-800 hover:border-slate-700 shadow-sm"
+                    title="Refresh List"
+              >
+                    <RefreshCw size={16} className={refreshing ? 'animate-spin text-brand-500' : ''} />
+              </button>
+              <button 
+                    onClick={handleExportCSV}
+                    className="flex items-center gap-2 px-4 py-3 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-xl transition-all border border-slate-800 hover:border-slate-700 shadow-sm font-medium text-sm group"
+              >
+                    <FileDown size={16} className="text-slate-500 group-hover:text-brand-400 transition-colors" />
+                    Export CSV
+              </button>
+          </div>
       </div>
 
       {/* Table Card */}

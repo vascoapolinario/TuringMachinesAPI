@@ -8,7 +8,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { 
   Search, Trash2, Box, Star, User, Code, Filter, Layers, Cpu, 
   ArrowLeft, LayoutGrid, ListFilter, Tag, PlayCircle, Disc, 
-  Sparkles, Zap, Download, ArrowRight, X
+  Sparkles, Zap, Download, ArrowRight, X, RefreshCw
 } from 'lucide-react';
 import { UserContext } from '../App';
 
@@ -19,6 +19,7 @@ export const Workshop: React.FC = () => {
   
   const [items, setItems] = useState<WorkshopItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
   // Filter States
@@ -45,15 +46,18 @@ export const Workshop: React.FC = () => {
     fetchItems();
   }, [searchParams]);
 
-  const fetchItems = async () => {
+  const fetchItems = async (force = false) => {
     try {
-      setLoading(true);
-      const data = await api.workshop.getAll();
+      if (force) setRefreshing(true);
+      else setLoading(true);
+      
+      const data = await api.workshop.getAll(force);
       setItems(data);
     } catch (e) {
       setError('Failed to load workshop items');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -190,15 +194,24 @@ export const Workshop: React.FC = () => {
                                 Discover {items.length} community-made machines and levels. Play, inspect, and learn from the best engineers.
                             </p>
                         </div>
-                        <div className="relative w-full md:w-80">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-                            <input 
-                                type="text"
-                                placeholder="Search items..."
-                                className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-slate-200 text-sm focus:outline-none focus:border-brand-500/50 focus:ring-1 focus:ring-brand-500/50 transition-all shadow-inner"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
+                        <div className="flex gap-3 w-full md:w-auto">
+                            <div className="relative flex-1 md:w-80">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+                                <input 
+                                    type="text"
+                                    placeholder="Search items..."
+                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-slate-200 text-sm focus:outline-none focus:border-brand-500/50 focus:ring-1 focus:ring-brand-500/50 transition-all shadow-inner"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
+                            </div>
+                            <button 
+                                onClick={() => fetchItems(true)}
+                                className="px-4 bg-slate-900 border border-slate-800 rounded-xl hover:bg-slate-800 transition-colors flex items-center justify-center text-slate-400 hover:text-white"
+                                title="Refresh"
+                            >
+                                <RefreshCw size={20} className={refreshing ? 'animate-spin text-brand-500' : ''} />
+                            </button>
                         </div>
                     </div>
                 )}

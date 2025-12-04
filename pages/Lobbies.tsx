@@ -13,6 +13,7 @@ export const Lobbies: React.FC = () => {
   const { user } = useContext(UserContext);
   const [lobbies, setLobbies] = useState<Lobby[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState('');
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
@@ -25,22 +26,24 @@ export const Lobbies: React.FC = () => {
     playerName: string | null;
   }>({ isOpen: false, type: null, lobbyCode: null, playerName: null });
 
-  const fetchLobbies = async () => {
+  const fetchLobbies = async (force = false) => {
     try {
-      setLoading(true);
-      const data = await api.lobbies.getAll();
+      if (force) setRefreshing(true);
+      else setLoading(true);
+      
+      const data = await api.lobbies.getAll(force);
       setLobbies(data);
     } catch (e) {
       setError('Failed to load lobbies');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
   useEffect(() => {
     fetchLobbies();
-    const interval = setInterval(fetchLobbies, 10000);
-    return () => clearInterval(interval);
+    // Removed automatic interval to save compute usage
   }, []);
 
   const handleCopyCode = (code: string) => {
@@ -141,10 +144,10 @@ export const Lobbies: React.FC = () => {
             />
           </div>
           <button 
-                onClick={fetchLobbies} 
+                onClick={() => fetchLobbies(true)} 
                 className="flex items-center gap-2 px-4 py-3 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-xl transition-all border border-slate-800 hover:border-slate-700 shadow-sm font-medium text-sm"
           >
-                <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                <RefreshCw size={16} className={refreshing ? 'animate-spin text-brand-500' : ''} />
                 Refresh List
           </button>
       </div>

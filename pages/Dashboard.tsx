@@ -3,7 +3,7 @@ import React, { useEffect, useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Trophy, Users, Sparkles, ArrowRight, Star, Cpu, Layers, Crown, 
-  PlayCircle, Plus, Search, Server, Activity, Clock
+  PlayCircle, Plus, Search, Server, Activity, Clock, RefreshCw
 } from 'lucide-react';
 import { api } from '../services/api';
 import { WorkshopItem, Lobby } from '../types';
@@ -19,6 +19,7 @@ export const Dashboard: React.FC = () => {
   const { user } = useContext(UserContext);
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   
   // Data State
   const [featuredItem, setFeaturedItem] = useState<WorkshopItem | null>(null);
@@ -32,65 +33,68 @@ export const Dashboard: React.FC = () => {
     totalItems: 0
   });
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [itemsData, lobbiesData] = await Promise.all([
-          api.workshop.getAll().catch(() => [] as WorkshopItem[]),
-          api.lobbies.getAll().catch(() => [] as Lobby[]),
-        ]);
+  const fetchData = async (force = false) => {
+    try {
+      if (force) setRefreshing(true);
+      
+      const [itemsData, lobbiesData] = await Promise.all([
+        api.workshop.getAll(force).catch(() => [] as WorkshopItem[]),
+        api.lobbies.getAll(force).catch(() => [] as Lobby[]),
+      ]);
 
-        // Stats
-        const machineCount = itemsData.filter(i => i.type === 'Machine').length;
-        const levelCount = itemsData.filter(i => i.type === 'Level').length;
-        const onlineCount = lobbiesData.reduce((acc, curr) => acc + (curr.lobbyPlayers?.length || 0), 0);
+      // Stats
+      const machineCount = itemsData.filter(i => i.type === 'Machine').length;
+      const levelCount = itemsData.filter(i => i.type === 'Level').length;
+      const onlineCount = lobbiesData.reduce((acc, curr) => acc + (curr.lobbyPlayers?.length || 0), 0);
 
-        setStats({
-          machines: machineCount,
-          levels: levelCount,
-          onlinePlayers: onlineCount,
-          totalItems: itemsData.length
-        });
+      setStats({
+        machines: machineCount,
+        levels: levelCount,
+        onlinePlayers: onlineCount,
+        totalItems: itemsData.length
+      });
 
-        // Featured Item logic
-        if (itemsData.length > 0) {
-            const highRated = itemsData.filter(i => i.rating >= 4);
-            const pool = highRated.length > 0 ? highRated : itemsData;
-            setFeaturedItem(pool[Math.floor(Math.random() * pool.length)]);
-            setRecentItems([...itemsData].reverse().slice(0, 5));
-        }
-
-        // Top Creator logic
-        const authorMap = new Map<string, { count: number, stars: number }>();
-        itemsData.forEach(item => {
-            const curr = authorMap.get(item.author) || { count: 0, stars: 0 };
-            authorMap.set(item.author, {
-                count: curr.count + 1,
-                stars: curr.stars + item.rating
-            });
-        });
-        
-        let bestCreator: CreatorStats | null = null;
-        let maxScore = -1;
-
-        authorMap.forEach((val, key) => {
-            const score = val.stars + (val.count * 0.5);
-            if (score > maxScore) {
-                maxScore = score;
-                bestCreator = { name: key, totalItems: val.count, totalStars: val.stars };
-            }
-        });
-        setTopCreator(bestCreator);
-
-        setActiveLobbies(lobbiesData.filter(l => !l.hasStarted).slice(0, 4));
-
-      } catch (e) {
-        console.error("Dashboard fetch error", e);
-      } finally {
-        setLoading(false);
+      // Featured Item logic
+      if (itemsData.length > 0) {
+          const highRated = itemsData.filter(i => i.rating >= 4);
+          const pool = highRated.length > 0 ? highRated : itemsData;
+          setFeaturedItem(pool[Math.floor(Math.random() * pool.length)]);
+          setRecentItems([...itemsData].reverse().slice(0, 5));
       }
-    };
 
+      // Top Creator logic
+      const authorMap = new Map<string, { count: number, stars: number }>();
+      itemsData.forEach(item => {
+          const curr = authorMap.get(item.author) || { count: 0, stars: 0 };
+          authorMap.set(item.author, {
+              count: curr.count + 1,
+              stars: curr.stars + item.rating
+          });
+      });
+      
+      let bestCreator: CreatorStats | null = null;
+      let maxScore = -1;
+
+      authorMap.forEach((val, key) => {
+          const score = val.stars + (val.count * 0.5);
+          if (score > maxScore) {
+              maxScore = score;
+              bestCreator = { name: key, totalItems: val.count, totalStars: val.stars };
+          }
+      });
+      setTopCreator(bestCreator);
+
+      setActiveLobbies(lobbiesData.filter(l => !l.hasStarted).slice(0, 4));
+
+    } catch (e) {
+      console.error("Dashboard fetch error", e);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
     fetchData();
   }, []);
 
@@ -135,6 +139,13 @@ export const Dashboard: React.FC = () => {
                 </div>
 
                 <div className="flex gap-4">
+                     <button 
+                        onClick={() => fetchData(true)}
+                        className="px-4 py-2 bg-slate-900 border border-slate-800 rounded-lg flex items-center justify-center hover:bg-slate-800 transition-colors group"
+                        title="Refresh Data"
+                     >
+                        <RefreshCw size={20} className={`text-slate-400 group-hover:text-white transition-colors ${refreshing ? 'animate-spin text-brand-500' : ''}`} />
+                     </button>
                      <div className="px-4 py-2 bg-slate-900 border border-slate-800 rounded-lg flex flex-col items-end min-w-[100px]">
                         <span className="text-[10px] uppercase font-bold text-slate-500">Database</span>
                         <span className="text-xl font-mono font-bold text-slate-200">{stats.totalItems}</span>

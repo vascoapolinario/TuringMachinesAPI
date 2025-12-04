@@ -5,7 +5,7 @@ import { AdminLog } from '../types';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { 
   Search, Trash2, ScrollText, CalendarClock, ShieldAlert, User, Eraser, 
-  Activity, ArrowRight, PlusCircle, Edit3, AlertTriangle, ShieldCheck
+  Activity, ArrowRight, PlusCircle, Edit3, AlertTriangle, ShieldCheck, RefreshCw
 } from 'lucide-react';
 import { UserContext } from '../App';
 
@@ -13,6 +13,7 @@ export const AdminLogs: React.FC = () => {
   const { user } = useContext(UserContext);
   const [logs, setLogs] = useState<AdminLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState('');
 
@@ -23,10 +24,12 @@ export const AdminLogs: React.FC = () => {
   const [cleanupOpen, setCleanupOpen] = useState(false);
   const [cleanupMode, setCleanupMode] = useState<'all' | 'old'>('old');
 
-  const fetchLogs = async () => {
+  const fetchLogs = async (force = false) => {
     try {
-      setLoading(true);
-      const data = await api.logs.getAll();
+      if (force) setRefreshing(true);
+      else setLoading(true);
+      
+      const data = await api.logs.getAll(force);
       setLogs(data);
     } catch (e: any) {
       if (e.message?.includes('403') || e.message?.includes('Forbidden')) {
@@ -36,6 +39,7 @@ export const AdminLogs: React.FC = () => {
       }
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -72,7 +76,7 @@ export const AdminLogs: React.FC = () => {
       try {
           const timeSpan = cleanupMode === 'old' ? '30.00:00:00' : undefined; 
           await api.logs.bulkDelete(timeSpan);
-          fetchLogs(); // Refresh list
+          fetchLogs(true); // Refresh list
       } catch (e) {
           console.error('Cleanup failed');
           alert('Failed to clean up logs');
@@ -200,6 +204,13 @@ export const AdminLogs: React.FC = () => {
           </div>
           
           <div className="flex gap-3">
+            <button 
+                  onClick={() => fetchLogs(true)}
+                  className="p-3 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-xl transition-all border border-slate-800 hover:border-slate-700 shadow-sm"
+                  title="Refresh List"
+            >
+                  <RefreshCw size={16} className={refreshing ? 'animate-spin text-brand-500' : ''} />
+            </button>
             <button 
                 onClick={() => { setCleanupMode('old'); setCleanupOpen(true); }}
                 className="px-4 py-3 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-xl text-xs font-bold transition-colors border border-slate-800 hover:border-slate-700 shadow-sm flex items-center gap-2"

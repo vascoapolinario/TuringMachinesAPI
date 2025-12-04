@@ -1,16 +1,17 @@
+
 import React, { useEffect, useState, useContext } from 'react';
 import { api } from '../services/api';
 import { LeaderboardEntry } from '../types';
 import { UserContext } from '../App';
-import { Card } from '../components/Card';
 import { Modal } from '../components/Modal';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { Trophy, Medal, Timer, Cpu, Network, Plus, Crown, Search, LayoutList, User, BarChart3, Trash2, ArrowUp, Zap } from 'lucide-react';
+import { Trophy, Medal, Timer, Cpu, Network, Plus, Crown, Search, LayoutList, User, Zap, RefreshCw, Trash2 } from 'lucide-react';
 
 export const Leaderboard: React.FC = () => {
   const { user } = useContext(UserContext);
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
   // Filters
@@ -30,12 +31,15 @@ export const Leaderboard: React.FC = () => {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [submissionToDelete, setSubmissionToDelete] = useState<{player: string, level: string} | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = async (force = false) => {
     try {
-      setLoading(true);
+      if (force) setRefreshing(true);
+      else setLoading(true);
+      
       const data = await api.leaderboard.get(
         viewMode === 'Personal',
-        selectedLevel || undefined
+        selectedLevel || undefined,
+        force
       );
       setEntries(data);
 
@@ -47,6 +51,7 @@ export const Leaderboard: React.FC = () => {
       setError("Failed to load leaderboard data");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -266,6 +271,14 @@ export const Leaderboard: React.FC = () => {
                         <Network size={18} />
                      </button>
                  </div>
+                 
+                 <button 
+                    onClick={() => fetchData(true)}
+                    className="p-3 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-xl transition-all border border-slate-800 hover:border-slate-700 shadow-sm"
+                    title="Refresh List"
+                 >
+                    <RefreshCw size={16} className={refreshing ? 'animate-spin text-brand-500' : ''} />
+                 </button>
              </div>
       </div>
 
