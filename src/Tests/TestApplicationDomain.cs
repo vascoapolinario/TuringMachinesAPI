@@ -50,6 +50,7 @@ namespace TuringMachinesAPITests
             services = new ServiceCollection();
             this.configuration = configuration;
             services.AddScoped<IConfiguration>(f => configuration);
+            Services.AddMemoryCache();
             Services.AddScoped<ICryptoService, AesCryptoService>();
         }
     }

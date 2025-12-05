@@ -3,6 +3,7 @@ using TuringMachinesAPI.DataSources;
 using TuringMachinesAPI.Entities;
 using TuringMachinesAPI.Dtos;
 using TuringMachinesAPI.Utils;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace TuringMachinesAPI.Services
 {
@@ -10,40 +11,91 @@ namespace TuringMachinesAPI.Services
     {
         private readonly TuringMachinesDbContext db;
         private readonly ICryptoService CryptoService;
+        private readonly IMemoryCache cache;
 
-        public LobbyService(TuringMachinesDbContext context, ICryptoService cryptoService)
+        public LobbyService(TuringMachinesDbContext context, ICryptoService cryptoService, IMemoryCache memoryCache)
         {
             db = context;
             CryptoService = cryptoService;
+            cache = memoryCache;
         }
 
         public IEnumerable<Dtos.Lobby> GetAll(string? codeFilter = null, bool includeStarted = false)
         {
+            if (cache.TryGetValue("Lobbies", out IEnumerable<Dtos.Lobby>? cachedLobbies))
+            {
+                if (!string.IsNullOrWhiteSpace(codeFilter))
+                {
+                    cachedLobbies = cachedLobbies!.Where(l => l.Code.ToLower().Contains(codeFilter.ToLower()));
+                }
+                if (!includeStarted)
+                {
+                    cachedLobbies = cachedLobbies!.Where(l => !l.HasStarted);
+                }
+                return cachedLobbies!;
+            }
+
             var query = db.Lobbies.AsNoTracking();
-
-            if (!string.IsNullOrWhiteSpace(codeFilter))
-                query = query.Where(l => l.Code.ToLower().Contains(codeFilter.ToLower()));
-
-            if (!includeStarted)
-                query = query.Where(l => !l.HasStarted);
-
+            var lobbyDtos = new List<Dtos.Lobby>();
             var lobbies = query.ToList();
 
             foreach (var lobby in lobbies)
             {
-                var hostName = db.Players
-                    .AsNoTracking()
-                    .Where(p => p.Id == lobby.HostPlayerId)
-                    .Select(p => p.Username)
-                    .FirstOrDefault() ?? "Unknown";
+                var lobbyPlayerNames = new List<string>();
+                string hostName;
+                if (cache.TryGetValue("Players", out IEnumerable<Dtos.Player>? cachedPlayers))
+                {
+                    var hostPlayer = cachedPlayers!.FirstOrDefault(p => p.Id == lobby.HostPlayerId);
+                    hostName = hostPlayer != null ? hostPlayer.Username : "Unknown";
 
-                var levelName = db.WorkshopItems
-                    .AsNoTracking()
-                    .Where(w => w.Id == lobby.SelectedLevelId)
-                    .Select(w => w.Name)
-                    .FirstOrDefault() ?? "Unknown";
+                    if (lobby.LobbyPlayers != null)
+                    {
+                        foreach (var playerId in lobby.LobbyPlayers)
+                        {
+                            var player = cachedPlayers!.FirstOrDefault(p => p.Id == playerId);
+                            lobbyPlayerNames.Add(player != null ? player.Username : "Unknown");
+                        }
+                    }
+                }
+                else
+                {
+                    hostName = db.Players
+                        .AsNoTracking()
+                        .Where(p => p.Id == lobby.HostPlayerId)
+                        .Select(p => p.Username)
+                        .FirstOrDefault() ?? "Unknown";
 
-                yield return new Dtos.Lobby
+                    if (lobby.LobbyPlayers != null)
+                    {
+                        foreach (var playerId in lobby.LobbyPlayers)
+                        {
+                            var playerName = db.Players
+                                .AsNoTracking()
+                                .Where(p => p.Id == playerId)
+                                .Select(p => p.Username)
+                                .FirstOrDefault() ?? "Unknown";
+                            lobbyPlayerNames.Add(playerName);
+                        }
+                    }
+                }
+
+                string levelName;
+                if (cache.TryGetValue("WorkshopItems", out IEnumerable<Dtos.WorkshopItem>? cachedItems))
+                {
+                    var levelItem = cachedItems!.FirstOrDefault(w => w.Id == lobby.SelectedLevelId);
+                    levelName = levelItem != null ? levelItem.Name : "Unknown";
+                }
+                else
+                {
+                    levelName = db.WorkshopItems
+                        .AsNoTracking()
+                        .Where(w => w.Id == lobby.SelectedLevelId)
+                        .Select(w => w.Name)
+                        .FirstOrDefault() ?? "Unknown";
+                }
+
+
+                Dtos.Lobby newLobby = new Dtos.Lobby
                 {
                     Id = lobby.Id,
                     Code = lobby.Code,
@@ -56,48 +108,28 @@ namespace TuringMachinesAPI.Services
                     HasStarted = lobby.HasStarted,
                     CreatedAt = lobby.CreatedAt,
                     LobbyPlayers = lobby.LobbyPlayers != null
-                        ? lobby.LobbyPlayers.Select(id =>
-                            db.Players.AsNoTracking().Where(p => p.Id == id).Select(p => p.Username).FirstOrDefault() ?? "Unknown").ToList()
+                        ? lobbyPlayerNames
                         : new List<string>()
                 };
+                lobbyDtos.Add(newLobby);
             }
+            cache.Set("Lobbies", lobbyDtos);
+            if (!string.IsNullOrWhiteSpace(codeFilter))
+            {
+                lobbyDtos = lobbyDtos.Where(l => l.Code.ToLower().Contains(codeFilter.ToLower())).ToList();
+            }
+            if (!includeStarted)
+            {
+                lobbyDtos = lobbyDtos.Where(l => !l.HasStarted).ToList();
+            }
+            return lobbyDtos;
+
         }
 
         public Dtos.Lobby? GetByCode(string code)
         {
-            var entity = db.Lobbies.AsNoTracking().FirstOrDefault(l => l.Code == code);
-            if (entity == null)
-                return null;
-
-            var hostName = db.Players
-                .AsNoTracking()
-                .Where(p => p.Id == entity.HostPlayerId)
-                .Select(p => p.Username)
-                .FirstOrDefault() ?? "Unknown";
-
-            var levelName = db.WorkshopItems
-                .AsNoTracking()
-                .Where(w => w.Id == entity.SelectedLevelId)
-                .Select(w => w.Name)
-                .FirstOrDefault() ?? "Unknown";
-
-            return new Dtos.Lobby
-            {
-                Id = entity.Id,
-                Code = entity.Code,
-                Name = entity.Name,
-                Password = "",
-                PasswordProtected = !string.IsNullOrEmpty(entity.Password),
-                HostPlayer = hostName,
-                LevelName = levelName,
-                MaxPlayers = entity.MaxPlayers,
-                HasStarted = entity.HasStarted,
-                CreatedAt = entity.CreatedAt,
-                LobbyPlayers = entity.LobbyPlayers != null
-                    ? entity.LobbyPlayers.Select(id =>
-                        db.Players.AsNoTracking().Where(p => p.Id == id).Select(p => p.Username).FirstOrDefault() ?? "Unknown").ToList()
-                    : new List<string>()
-            };
+            var lobbies = GetAll();
+            return lobbies.FirstOrDefault(l => l.Code == code);
         }
 
         public Dtos.Lobby? Create(int hostPlayerId, string name, int selectedLevelId, int max_players, string? password = null)
@@ -109,9 +141,20 @@ namespace TuringMachinesAPI.Services
             if (max_players < 2 || max_players > 10)
                 max_players = 4;
 
-            var existingLobby = db.Lobbies.FirstOrDefault(l => l.LobbyPlayers != null && l.LobbyPlayers.Contains(hostPlayerId));
-            if (existingLobby != null)
-                return null;
+            if (cache.TryGetValue("Lobbies", out IEnumerable<Dtos.Lobby>? cachedLobbies))
+            {
+                if (cachedLobbies!.Any(l => l.HostPlayer == db.Players.AsNoTracking().Where(p => p.Id == hostPlayerId)
+                    .Select(p => p.Username).FirstOrDefault()))
+                {
+                    return null;
+                }
+            }
+            else
+            {
+                var existingLobby = db.Lobbies.FirstOrDefault(l => l.LobbyPlayers != null && l.LobbyPlayers.Contains(hostPlayerId));
+                if (existingLobby != null)
+                    return null;
+            }
 
             var lobby = new Entities.Lobby
             {
@@ -129,18 +172,38 @@ namespace TuringMachinesAPI.Services
             db.Lobbies.Add(lobby);
             db.SaveChanges();
 
-            var hostName = db.Players.AsNoTracking().Where(p => p.Id == hostPlayerId)
+            string hostName;
+            string levelName;
+
+            if (cache.TryGetValue("Players", out IEnumerable<Dtos.Player>? cachedPlayers))
+            {
+                var hostPlayer = cachedPlayers!.FirstOrDefault(p => p.Id == hostPlayerId);
+                hostName = hostPlayer != null ? hostPlayer.Username : "Unknown";
+            }
+            else
+            {
+                hostName = db.Players.AsNoTracking().Where(p => p.Id == hostPlayerId)
                 .Select(p => p.Username).FirstOrDefault() ?? "Unknown";
+            }
 
-            var levelName = db.WorkshopItems.AsNoTracking().Where(w => w.Id == selectedLevelId)
+            if (cache.TryGetValue("WorkshopItems", out IEnumerable<Dtos.WorkshopItem>? cachedItems))
+            {
+                var levelItem = cachedItems!.FirstOrDefault(w => w.Id == selectedLevelId);
+                levelName = levelItem != null ? levelItem.Name : "Unknown";
+            }
+            else
+            {
+                levelName = db.WorkshopItems.AsNoTracking().Where(w => w.Id == selectedLevelId)
                 .Select(w => w.Name).FirstOrDefault() ?? "Unknown";
+            }
 
-            return new Dtos.Lobby
+            Dtos.Lobby newLobby = new Dtos.Lobby
             {
                 Id = lobby.Id,
                 Code = lobby.Code,
                 Name = lobby.Name,
                 Password = "",
+                PasswordProtected = !string.IsNullOrEmpty(password),
                 HostPlayer = hostName,
                 LevelName = levelName,
                 MaxPlayers = lobby.MaxPlayers,
@@ -148,6 +211,19 @@ namespace TuringMachinesAPI.Services
                 CreatedAt = lobby.CreatedAt,
                 LobbyPlayers = new List<string> { hostName }
             };
+
+            if (cache.TryGetValue("Lobbies", out IEnumerable<Dtos.Lobby>? existingCachedLobbies))
+            {
+                var lobbyDtoList = existingCachedLobbies!.ToList();
+                lobbyDtoList.Add(newLobby);
+                cache.Set("Lobbies", lobbyDtoList);
+            }
+            else
+            {
+                cache.Set("Lobbies", new List<Dtos.Lobby> { newLobby });
+            }
+
+            return newLobby;
         }
 
         public bool JoinLobby(string code, int playerId, string? password = null)
@@ -171,6 +247,32 @@ namespace TuringMachinesAPI.Services
                 db.SaveChanges();
             }
 
+            if (cache.TryGetValue("Lobbies", out IEnumerable<Dtos.Lobby>? cachedLobbies))
+            {
+                var lobbyDtoList = cachedLobbies!.ToList();
+                var lobbyDto = lobbyDtoList.FirstOrDefault(l => l.Code == code);
+                if (lobbyDto != null)
+                {
+                    string playerName;
+                    if (cache.TryGetValue("Players", out IEnumerable<Dtos.Player>? cachedPlayers))
+                    {
+                        var player = cachedPlayers!.FirstOrDefault(p => p.Id == playerId);
+                        playerName = player != null ? player.Username : "Unknown";
+                    }
+                    else
+                    {
+                        playerName = db.Players
+                            .AsNoTracking()
+                            .Where(p => p.Id == playerId)
+                            .Select(p => p.Username)
+                            .FirstOrDefault() ?? "Unknown";
+                    }
+                    var updatedPlayerList = lobbyDto.LobbyPlayers!.ToList();
+                    updatedPlayerList.Add(playerName);
+                    lobbyDto.LobbyPlayers = updatedPlayerList;
+                }
+                cache.Set("Lobbies", lobbyDtoList);
+            }
             return true;
         }
 
@@ -188,6 +290,32 @@ namespace TuringMachinesAPI.Services
             }
 
             db.SaveChanges();
+            if (cache.TryGetValue("Lobbies", out IEnumerable<Dtos.Lobby>? cachedLobbies))
+            {
+                var lobbyDtoList = cachedLobbies!.ToList();
+                var lobbyDto = lobbyDtoList.FirstOrDefault(l => l.Code == code);
+                if (lobbyDto != null)
+                {
+                    string playerName;
+                    if (cache.TryGetValue("Players", out IEnumerable<Dtos.Player>? cachedPlayers))
+                    {
+                        var player = cachedPlayers!.FirstOrDefault(p => p.Id == playerId);
+                        playerName = player != null ? player.Username : "Unknown";
+                    }
+                    else
+                    {
+                        playerName = db.Players
+                            .AsNoTracking()
+                            .Where(p => p.Id == playerId)
+                            .Select(p => p.Username)
+                            .FirstOrDefault() ?? "Unknown";
+                    }
+                    var updatedPlayerList = lobbyDto.LobbyPlayers!.ToList();
+                    updatedPlayerList.Remove(playerName);
+                    lobbyDto.LobbyPlayers = updatedPlayerList;
+                }
+                cache.Set("Lobbies", lobbyDtoList);
+            }
             return true;
         }
 
@@ -205,6 +333,16 @@ namespace TuringMachinesAPI.Services
 
             lobby.HasStarted = true;
             db.SaveChanges();
+            if (cache.TryGetValue("Lobbies", out IEnumerable<Dtos.Lobby>? cachedLobbies))
+            {
+                var lobbyDtoList = cachedLobbies!.ToList();
+                var lobbyDto = lobbyDtoList.FirstOrDefault(l => l.Code == code);
+                if (lobbyDto != null)
+                {
+                    lobbyDto.HasStarted = true;
+                }
+                cache.Set("Lobbies", lobbyDtoList);
+            }
             return true;
         }
 
@@ -220,6 +358,16 @@ namespace TuringMachinesAPI.Services
 
             db.Lobbies.Remove(lobby);
             db.SaveChanges();
+            if  (cache.TryGetValue("Lobbies", out IEnumerable<Dtos.Lobby>? cachedLobbies))
+            {
+                var lobbyDtoList = cachedLobbies!.ToList();
+                var lobbyDto = lobbyDtoList.FirstOrDefault(l => l.Code == code);
+                if (lobbyDto != null)
+                {
+                    lobbyDtoList.Remove(lobbyDto);
+                }
+                cache.Set("Lobbies", lobbyDtoList);
+            }
             return true;
         }
         public Entities.Lobby? GetEntityByPlayerId(int playerId)

@@ -1,4 +1,6 @@
-﻿using Microsoft.IdentityModel.Tokens;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -14,12 +16,14 @@ namespace TuringMachinesAPI.Services
         private readonly TuringMachinesDbContext db;
         private readonly ICryptoService CryptoService;
         private readonly IConfiguration _config;
+        private readonly IMemoryCache cache;
 
-        public PlayerService(TuringMachinesDbContext dbContext, ICryptoService _CryptoService, IConfiguration config)
+        public PlayerService(TuringMachinesDbContext dbContext, ICryptoService _CryptoService, IConfiguration config, IMemoryCache memoryCache)
         {
             db = dbContext;
             CryptoService = _CryptoService;
             _config = config;
+            cache = memoryCache;
         }
 
         /// <summary>
@@ -27,17 +31,26 @@ namespace TuringMachinesAPI.Services
         /// </summary>
         public IEnumerable<Dtos.Player> GetAllPlayers()
         {
-            return db.Players
+            if (cache.TryGetValue("Players", out IEnumerable<Dtos.Player>? cachedPlayers))
+            {
+                return cachedPlayers ?? Enumerable.Empty<Dtos.Player>();
+            }
+
+            var players = db.Players
+                .AsNoTracking()
                 .Select(p => new Dtos.Player
                 {
                     Id = p.Id,
                     Username = p.Username,
-                    Password = CryptoService.Decrypt(p.Password),
+                    Password = CryptoService.Decrypt(p.Password!),
                     Role = p.Role,
                     CreatedAt = p.CreatedAt,
                     LastLogin = p.LastLogin
                 })
                 .ToList();
+
+            cache.Set("Players", players);
+            return players;
         }
 
         /// <summary>
@@ -45,17 +58,14 @@ namespace TuringMachinesAPI.Services
         /// </summary>
         public Dtos.Player? GetPlayerById(int id)
         {
-            var entity = db.Players.FirstOrDefault(p => p.Id == id);
-            if (entity is null) return null;
-            return new Dtos.Player
+            Dtos.Player? cachedPlayer = CacheHelper.GetPlayerFromCacheById(cache, id);
+            if (cachedPlayer != null)
             {
-                Id = entity.Id,
-                Username = entity.Username,
-                Password = CryptoService.Decrypt(entity.Password),
-                Role = entity.Role,
-                CreatedAt = entity.CreatedAt,
-                LastLogin = entity.LastLogin
-            };
+                return cachedPlayer;
+            }
+
+            var players = GetAllPlayers();
+            return players.FirstOrDefault(p => p.Id == id);
         }
 
         /// <summary>
@@ -63,6 +73,11 @@ namespace TuringMachinesAPI.Services
         /// </summary>
         public Dtos.Player? AddPlayer(Dtos.Player player)
         {
+            if (CacheHelper.GetPlayerFromCacheByUsername(cache, player.Username) is not null)
+            {
+                return null; 
+            }
+
             if (db.Players.Any(p => p.Username == player.Username))
             {
                 return null; 
@@ -87,12 +102,17 @@ namespace TuringMachinesAPI.Services
             db.Players.Add(entity);
             db.SaveChanges();
             player.Id = entity.Id;
+            if (cache.TryGetValue("Players", out IEnumerable<Dtos.Player>? cachedPlayers))
+            {
+                var updatedPlayers = cachedPlayers?.ToList() ?? new List<Dtos.Player>();
+                updatedPlayers.Add(player);
+                cache.Set("Players", updatedPlayers);
+            }
             return player;
         }
 
         public Player? Authenticate(string username, string password)
         {
-
             var Player = GetAllPlayers()
                 .FirstOrDefault(p => p.Username == username && p.Password == password);
             if (Player is not null)
@@ -100,6 +120,7 @@ namespace TuringMachinesAPI.Services
                 var entity = db.Players.First(p => p.Id == Player.Id);
                 entity.LastLogin = DateTime.UtcNow;
                 db.SaveChanges();
+                cache.Remove("Players");
                 return new Player
                 {
                     Id = Player.Id,
@@ -109,7 +130,6 @@ namespace TuringMachinesAPI.Services
                     LastLogin = entity.LastLogin
                 };
             }
-
             return Player;
         }
 
@@ -214,6 +234,17 @@ namespace TuringMachinesAPI.Services
             if (player is null) return false;
             db.Players.Remove(player);
             db.SaveChanges();
+
+            if (cache.TryGetValue("Players", out IEnumerable<Dtos.Player>? cachedPlayers))
+            {
+                var updatedPlayers = cachedPlayers?.Where(p => p.Id != playerId).ToList() ?? new List<Dtos.Player>();
+                cache.Set("Players", updatedPlayers);
+            }
+
+            cache.Remove("Lobbies");
+            cache.Remove("WorkshopItems");
+            cache.Remove("Leaderboard");
+
             return true;
         }
 

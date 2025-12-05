@@ -31,6 +31,7 @@ Website (Made by Gemini) that uses the API: [Turing Sandbox API Dashboard](https
 - [Security & Data Handling](#security--data-handling)
 - [Validation & Content Filtering](#validation--content-filtering)
 - [HTTP API Summary](#http-api-summary)
+- [Cache](#cache)
 - [Running Locally](#running-locally)
 - [Testing and CI](#testing-and-ci)
 - [Deployment Notes](#deployment-notes)
@@ -437,6 +438,28 @@ A condensed view of the API surface:
 
 For detailed request/response shapes, see the DTO definitions (the `Dtos` folder) and XML comments in the controllers.  
 The project can also be wired up with Swagger/Swashbuckle for interactive API docs if desired.
+
+---
+
+## Cache
+To drastically reduce database load and improve response times, the API uses IMemoryCache to store frequently accessed data across multiple services.
+
+Before caching, some endpoints could trigger hundreds or thousands of SQL queries per request, especially when iterating workshop items and looking up authors, ratings or subscriptions.~
+
+### What gets cached?
+
+| Cache Key           | Contents                        | Used In                       |
+| ------------------- | ------------------------------- | ----------------------------- |
+| `WorkshopItems`     | All workshop DTOs               | Workshop APIs                 |
+| `LastPlayerGetId`   | Previously requested user id    | User-specific metadata reuse  |
+| `Players`           | All player DTOs                 | Name resolution, Playerservice|
+| `Leaderboard`       | All LevelSubmission DTOs        | LeaderboardService            |
+| `LeaderboardLevels` | All LeaderboardLevel DTOs       | LeaderboardService            |
+| `AdminLogs`         | All AdminLog DTOs               | AdminLogService               |
+
+Caches are built at the launch of the API, unless there are no players.
+
+The tests project does not build the cache before running.
 
 ---
 

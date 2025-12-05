@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using System.Text.Json;
 using TuringMachinesAPI.DataSources;
 using TuringMachinesAPI.Dtos;
@@ -11,37 +12,99 @@ namespace TuringMachinesAPI.Services
     public class WorkshopItemService
     {
         private readonly TuringMachinesDbContext db;
+        private readonly IMemoryCache cache;
 
-        public WorkshopItemService(TuringMachinesDbContext context)
+        public WorkshopItemService(TuringMachinesDbContext context, IMemoryCache memoryCache)
         {
             db = context;
+            cache = memoryCache;
         }
 
         public IEnumerable<object> GetAll(string? NameFilter, int UserId)
         {
+            if (cache.TryGetValue("LastPlayerGetId", out int? cachedLastGetId) && cachedLastGetId == UserId && cache.TryGetValue("WorkshopItems", out List<object>? cachedItemsCustom))
+            {
+                IEnumerable<object> itemsToReturn = cachedItemsCustom!;
+                if (!string.IsNullOrWhiteSpace(NameFilter))
+                    itemsToReturn = itemsToReturn.Where(x =>
+                        x is Dtos.WorkshopItem w && w.Name.Contains(NameFilter, StringComparison.OrdinalIgnoreCase) ||
+                        x is Dtos.LevelWorkshopItem lw && lw.Name.Contains(NameFilter, StringComparison.OrdinalIgnoreCase) ||
+                        x is Dtos.MachineWorkshopItem mw && mw.Name.Contains(NameFilter, StringComparison.OrdinalIgnoreCase));
+                return itemsToReturn;
+            }
+
+            var mySubs = db.WorkshopItems
+                .Where(w => w.Subscribers != null && w.Subscribers.Contains(UserId))
+                .Select(w => w.Id)
+                .ToHashSet();
+
+            var myRatings = db.Reviews
+                .Where(r => r.UserId == UserId)
+                .ToDictionary(r => r.WorkshopItemId, r => r.Rating);
+
+            if (cache.TryGetValue("WorkshopItems", out List<object>? cachedItems))
+            {
+                IEnumerable<object> itemsToReturn = cachedItems!;
+
+                if (!string.IsNullOrWhiteSpace(NameFilter))
+                    itemsToReturn = itemsToReturn.Where(x =>
+                        x is Dtos.WorkshopItem w && w.Name.Contains(NameFilter, StringComparison.OrdinalIgnoreCase) ||
+                        x is Dtos.LevelWorkshopItem lw && lw.Name.Contains(NameFilter, StringComparison.OrdinalIgnoreCase) ||
+                        x is Dtos.MachineWorkshopItem mw && mw.Name.Contains(NameFilter, StringComparison.OrdinalIgnoreCase));
+
+                foreach (var item in itemsToReturn)
+                {
+                    if (item is Dtos.LevelWorkshopItem lw)
+                    {
+                        lw.UserIsSubscribed = mySubs.Contains(lw.Id);
+                        lw.UserRating = myRatings.GetValueOrDefault(lw.Id);
+                    }
+                    else if (item is Dtos.MachineWorkshopItem mw)
+                    {
+                        mw.UserIsSubscribed = mySubs.Contains(mw.Id);
+                        mw.UserRating = myRatings.GetValueOrDefault(mw.Id);
+                    }
+                    else if (item is Dtos.WorkshopItem w)
+                    {
+                        w.UserIsSubscribed = mySubs.Contains(w.Id);
+                        w.UserRating = myRatings.GetValueOrDefault(w.Id);
+                    }
+                }
+
+                cache.Set("LastPlayerGetId", UserId);
+                return itemsToReturn;
+            }
+
             var query = db.WorkshopItems.AsNoTracking();
 
             if (!string.IsNullOrWhiteSpace(NameFilter))
                 query = query.Where(wi => wi.Name.ToLower().Contains(NameFilter.ToLower()));
 
             var items = query.ToList();
+            var results = new List<object>(items.Count);
+
+            var levelData = db.Levels.AsNoTracking()
+                .ToDictionary(l => l.WorkshopItemId, l => l);
+
+            var machineData = db.Machines.AsNoTracking()
+                .ToDictionary(m => m.WorkshopItemId, m => m);
+
+            var authors = db.Players.AsNoTracking()
+                .ToDictionary(x => x.Id, x => x.Username);
 
             foreach (var i in items)
             {
-                var authorName = db.Players
-                    .AsNoTracking()
-                    .Where(p => p.Id == i.AuthorId)
-                    .Select(p => p.Username)
-                    .FirstOrDefault() ?? "Unknown";
+                Dtos.Player? cachedAuthor = CacheHelper.GetPlayerFromCacheById(cache, i.AuthorId);
+                string authorName = authors.GetValueOrDefault(i.AuthorId, "Unknown");
 
-                int UserRating = UserRatingForItem(UserId, i.Id) ?? 0;
+                var userRating = myRatings.GetValueOrDefault(i.Id);
+                var userSubscribed = mySubs.Contains(i.Id);
 
                 if (i.Type.Equals(WorkshopItemType.Level))
                 {
-                    var level = db.Levels.AsNoTracking().FirstOrDefault(l => l.WorkshopItemId == i.Id);
-                    if (level != null)
+                    if (levelData.TryGetValue(i.Id, out var level))
                     {
-                        yield return new Dtos.LevelWorkshopItem
+                        results.Add(new Dtos.LevelWorkshopItem
                         {
                             Id = i.Id,
                             LevelId = level.Id,
@@ -58,19 +121,18 @@ namespace TuringMachinesAPI.Services
                             TransformTestsJson = level.TransformTestsJson,
                             CorrectExamplesJson = level.CorrectExamplesJson,
                             WrongExamplesJson = level.WrongExamplesJson,
-                            UserRating = UserRating,
-                            UserIsSubscribed = IsUserSubscribed(UserId, i.Id),
+                            UserRating = userRating,
+                            UserIsSubscribed = userSubscribed,
                             TwoTapes = level.TwoTapes
-                        };
+                        });
                         continue;
                     }
                 }
                 else if (i.Type.Equals(WorkshopItemType.Machine))
                 {
-                    var machine = db.Machines.AsNoTracking().FirstOrDefault(m => m.WorkshopItemId == i.Id);
-                    if (machine != null)
+                    if (machineData.TryGetValue(i.Id, out var machine))
                     {
-                        yield return new Dtos.MachineWorkshopItem
+                        results.Add(new Dtos.MachineWorkshopItem
                         {
                             Id = i.Id,
                             MachineId = machine.Id,
@@ -83,14 +145,14 @@ namespace TuringMachinesAPI.Services
                             AlphabetJson = machine.AlphabetJson,
                             NodesJson = machine.NodesJson,
                             ConnectionsJson = machine.ConnectionsJson,
-                            UserRating = UserRating,
-                            UserIsSubscribed = IsUserSubscribed(UserId, i.Id)
-                        };
+                            UserRating = userRating,
+                            UserIsSubscribed = userSubscribed
+                        });
                         continue;
                     }
                 }
 
-                yield return new Dtos.WorkshopItem
+                results.Add(new Dtos.WorkshopItem
                 {
                     Id = i.Id,
                     Name = i.Name,
@@ -99,91 +161,45 @@ namespace TuringMachinesAPI.Services
                     Type = i.Type.ToString(),
                     Rating = i.Rating,
                     Subscribers = i.Subscribers?.Count ?? 0,
-                    UserRating = UserRating,
-                    UserIsSubscribed = IsUserSubscribed(UserId, i.Id)
-                };
+                    UserRating = userRating,
+                    UserIsSubscribed = userSubscribed
+                });
             }
+
+            cache.Set("WorkshopItems", results);
+            cache.Set("LastPlayerGetId", UserId);
+
+            return results;
         }
+
 
         public object? GetById(int id, int UserId)
         {
-            var entity = db.WorkshopItems.AsNoTracking().FirstOrDefault(wi => wi.Id == id);
-            if (entity == null)
-                return null;
+            var allItems = GetAll(null, UserId);
 
-            var authorName = db.Players
-                .AsNoTracking()
-                .Where(p => p.Id == entity.AuthorId)
-                .Select(p => p.Username)
-                .FirstOrDefault() ?? "Unknown";
-
-            int UserRating = UserRatingForItem(UserId, entity.Id) ?? 0;
-
-
-            if (entity.Type.Equals(WorkshopItemType.Level))
+            Dtos.Player? cachedAuthor = CacheHelper.GetPlayerFromCacheById(cache, UserId);
+            string authorName;
+            if (cachedAuthor != null)
             {
-                var level = db.Levels.AsNoTracking().FirstOrDefault(l => l.WorkshopItemId == entity.Id);
-                if (level == null) return null;
-
-                return new Dtos.LevelWorkshopItem
-                {
-                    Id = entity.Id,
-                    LevelId = level.Id,
-                    Name = entity.Name,
-                    Description = entity.Description,
-                    Author = authorName,
-                    Type = entity.Type.ToString(),
-                    Rating = entity.Rating,
-                    Subscribers = entity.Subscribers?.Count ?? 0,
-                    LevelType = level.LevelType,
-                    DetailedDescription = level.DetailedDescription,
-                    Mode = level.Mode.ToString(),
-                    AlphabetJson = level.AlphabetJson,
-                    TransformTestsJson = level.TransformTestsJson,
-                    CorrectExamplesJson = level.CorrectExamplesJson,
-                    WrongExamplesJson = level.WrongExamplesJson,
-                    UserRating = UserRating,
-                    UserIsSubscribed = IsUserSubscribed(UserId, entity.Id),
-                    TwoTapes = level.TwoTapes
-                };
+                authorName = cachedAuthor.Username;
+            }
+            else
+            {
+                authorName = db.Players
+                    .AsNoTracking()
+                    .Where(p => p.Id == UserId)
+                    .Select(p => p.Username)
+                    .FirstOrDefault() ?? "Unknown";
             }
 
-
-            else if (entity.Type.Equals(WorkshopItemType.Machine))
+            return allItems.FirstOrDefault(item =>
             {
-                var machine = db.Machines.AsNoTracking().FirstOrDefault(m => m.WorkshopItemId == entity.Id);
-                if (machine == null) return null;
+                if (item is Dtos.WorkshopItem w) return w.Author.Equals(authorName);
+                if (item is Dtos.LevelWorkshopItem lw) return lw.Author.Equals(authorName);
+                if (item is Dtos.MachineWorkshopItem mw) return mw.Author.Equals(authorName);
+                return false;
+            });
 
-                return new Dtos.MachineWorkshopItem
-                {
-                    Id = entity.Id,
-                    MachineId = machine.Id,
-                    Name = entity.Name,
-                    Description = entity.Description,
-                    Author = authorName,
-                    Type = entity.Type.ToString(),
-                    Rating = entity.Rating,
-                    Subscribers = entity.Subscribers?.Count ?? 0,
-                    AlphabetJson = machine.AlphabetJson,
-                    NodesJson = machine.NodesJson,
-                    ConnectionsJson = machine.ConnectionsJson,
-                    UserRating = UserRating,
-                    UserIsSubscribed = IsUserSubscribed(UserId, entity.Id)
-                };
-            }
-
-            return new Dtos.WorkshopItem
-            {
-                Id = entity.Id,
-                Name = entity.Name,
-                Description = entity.Description,
-                Author = authorName,
-                Type = entity.Type.ToString(),
-                Rating = entity.Rating,
-                Subscribers = entity.Subscribers?.Count ?? 0,
-                UserRating = UserRating,
-                UserIsSubscribed = IsUserSubscribed(UserId, entity.Id)
-            };
         }
 
         public Dtos.WorkshopItem? AddWorkshopItem(JsonElement json, int UserId)
@@ -193,11 +209,22 @@ namespace TuringMachinesAPI.Services
 
             var name = json.GetProperty("name").GetString() ?? "";
             var description = json.GetProperty("description").GetString() ?? "";
-            var authorName = db.Players
-                .AsNoTracking()
-                .Where(p => p.Id == UserId)
-                .Select(p => p.Username)
-                .FirstOrDefault() ?? "Unknown";
+
+            Dtos.Player? cachedAuthor = CacheHelper.GetPlayerFromCacheById(cache, UserId);
+            string authorName;
+            if (cachedAuthor != null)
+            {
+                authorName = cachedAuthor.Username;
+            }
+            else
+            {
+                authorName = db.Players
+                    .AsNoTracking()
+                    .Where(p => p.Id == UserId)
+                    .Select(p => p.Username)
+                    .FirstOrDefault() ?? "Unknown";
+            }
+
             var type = json.GetProperty("type").GetString() ?? "";
 
             if (ValidationUtils.ContainsDisallowedContent(name) ||
@@ -211,14 +238,35 @@ namespace TuringMachinesAPI.Services
 
             if (Enum.TryParse(type, true, out WorkshopItemType parsedTypeVerify))
             {
-                bool nameExists = db.WorkshopItems
-                    .AsNoTracking()
-                    .Any(wi => wi.Name.ToLower() == name.ToLower() &&
-                               wi.Type == parsedTypeVerify);
-                if (nameExists)
+                if (cache.TryGetValue("WorkshopItems", out IEnumerable<object>? cachedItems))
                 {
-                    Console.WriteLine("[AddWorkshopItem] Workshop item with the same name and type already exists.");
-                    return null;
+                    bool cachedNameExists = cachedItems!.Any(item =>
+                    {
+                        if (item is Dtos.WorkshopItem w)
+                            return w.Name.ToLower() == name.ToLower() && w.Type.Equals(type, StringComparison.OrdinalIgnoreCase);
+                        if (item is Dtos.LevelWorkshopItem lw)
+                            return lw.Name.ToLower() == name.ToLower() && lw.Type.Equals(type, StringComparison.OrdinalIgnoreCase);
+                        if (item is Dtos.MachineWorkshopItem mw)
+                            return mw.Name.ToLower() == name.ToLower() && mw.Type.Equals(type, StringComparison.OrdinalIgnoreCase);
+                        return false;
+                    });
+                    if (cachedNameExists)
+                    {
+                        Console.WriteLine("[AddWorkshopItem] Workshop item with the same name and type already exists in cache.");
+                        return null;
+                    }
+                }
+                else
+                {
+                    bool nameExists = db.WorkshopItems
+                        .AsNoTracking()
+                        .Any(wi => wi.Name.ToLower() == name.ToLower() &&
+                                   wi.Type == parsedTypeVerify);
+                    if (nameExists)
+                    {
+                        Console.WriteLine("[AddWorkshopItem] Workshop item with the same name and type already exists.");
+                        return null;
+                    }
                 }
             }
             else
@@ -227,19 +275,12 @@ namespace TuringMachinesAPI.Services
                 return null;
             }
 
-
-            var authorId = db.Players
-                .AsNoTracking()
-                .Where(p => p.Username == authorName)
-                .Select(p => p.Id)
-                .FirstOrDefault();
-
             var newItem = new Entities.WorkshopItem
             {
                 Name = name,
                 Description = description,
                 Type = Enum.TryParse(type, true, out WorkshopItemType parsedType) ? parsedType : WorkshopItemType.Undefined,
-                AuthorId = authorId,
+                AuthorId = UserId,
                 Rating = 0.0,
                 Subscribers = null
             };
@@ -284,7 +325,7 @@ namespace TuringMachinesAPI.Services
                 db.Levels.Add(level);
                 db.SaveChanges();
 
-                return new Dtos.LevelWorkshopItem
+                Dtos.LevelWorkshopItem newLevel = new Dtos.LevelWorkshopItem
                 {
                     Id = newItem.Id,
                     LevelId = level.Id,
@@ -296,12 +337,23 @@ namespace TuringMachinesAPI.Services
                     Subscribers = 0,
                     LevelType = level.LevelType,
                     DetailedDescription = level.DetailedDescription,
+                    Objective = level.Objective,
                     Mode = level.Mode.ToString(),
                     AlphabetJson = level.AlphabetJson,
                     TransformTestsJson = level.TransformTestsJson,
                     CorrectExamplesJson = level.CorrectExamplesJson,
-                    WrongExamplesJson = level.WrongExamplesJson
+                    WrongExamplesJson = level.WrongExamplesJson,
+                    TwoTapes = level.TwoTapes
                 };
+
+                if (cache.TryGetValue("WorkshopItems", out IEnumerable<object>? cachedItems))
+                {
+                    var updatedItems = cachedItems!.ToList();
+                    updatedItems.Add(newLevel);
+                    cache.Set("WorkshopItems", updatedItems);
+                }
+
+                return newLevel;
             }
             else if (type == WorkshopItemType.Machine.ToString())
             {
@@ -330,7 +382,7 @@ namespace TuringMachinesAPI.Services
                 db.Machines.Add(machine);
                 db.SaveChanges();
 
-                return new Dtos.MachineWorkshopItem
+                Dtos.MachineWorkshopItem newMachine = new Dtos.MachineWorkshopItem
                 {
                     Id = newItem.Id,
                     MachineId = machine.Id,
@@ -344,6 +396,14 @@ namespace TuringMachinesAPI.Services
                     NodesJson = machine.NodesJson,
                     ConnectionsJson = machine.ConnectionsJson
                 };
+
+                if (cache.TryGetValue("WorkshopItems", out IEnumerable<object>? cachedItems))
+                {
+                    var updatedItems = cachedItems!.ToList();
+                    updatedItems.Add(newMachine);
+                    cache.Set("WorkshopItems", updatedItems);
+                }
+                return newMachine;
             }
 
             Console.WriteLine("[AddWorkshopItem] Unsupported workshop item type.");
@@ -384,6 +444,33 @@ namespace TuringMachinesAPI.Services
                 .Average();
 
             db.SaveChanges();
+            if (cache.TryGetValue("WorkshopItems", out List<object>? cachedItems))
+            {
+                var updated = cachedItems!
+                    .Select(x =>
+                    {
+                        if (x is Dtos.WorkshopItem w && w.Id == ItemId)
+                        {
+                            w.Rating = WorkShopItem.Rating;
+                            return w;
+                        }
+                        if (x is Dtos.LevelWorkshopItem lw && lw.Id == ItemId)
+                        {
+                            lw.Rating = WorkShopItem.Rating;
+                            return lw;
+                        }
+                        if (x is Dtos.MachineWorkshopItem mw && mw.Id == ItemId)
+                        {
+                            mw.Rating = WorkShopItem.Rating;
+                            return mw;
+                        }
+                        return x;
+                    })
+                    .ToList();
+                cache.Set("WorkshopItems", updated);
+                cache.Set("LastPlayerGetId", userId);
+            }
+
             return true;
         }
 
@@ -403,6 +490,35 @@ namespace TuringMachinesAPI.Services
             {
                 workshopItem.Subscribers.Add(userId);
                 db.SaveChanges();
+                if (cache.TryGetValue("WorkshopItems", out List<object>? cachedItems))
+                {
+                    var updated = cachedItems!
+                        .Select(x =>
+                        {
+                            if (x is Dtos.WorkshopItem w && w.Id == workshopItemId)
+                            {
+                                w.Subscribers += 1;
+                                w.UserIsSubscribed = true;
+                                return w;
+                            }
+                            if (x is Dtos.LevelWorkshopItem lw && lw.Id == workshopItemId)
+                            {
+                                lw.Subscribers += 1;
+                                lw.UserIsSubscribed = true;
+                                return lw;
+                            }
+                            if (x is Dtos.MachineWorkshopItem mw && mw.Id == workshopItemId)
+                            {
+                                mw.Subscribers += 1;
+                                mw.UserIsSubscribed = true;
+                                return mw;
+                            }
+                            return x;
+                        })
+                        .ToList();
+                    cache.Set("WorkshopItems", updated);
+                    cache.Set("LastPlayerGetId", userId);
+                }
                 return true;
             }
             return false;
@@ -415,6 +531,36 @@ namespace TuringMachinesAPI.Services
                 var workshopItem = db.WorkshopItems.FirstOrDefault(wi => wi.Id == workshopItemId);
                 workshopItem!.Subscribers!.Remove(userId);
                 db.SaveChanges();
+
+                if (cache.TryGetValue("WorkshopItems", out List<object>? cachedItems))
+                {
+                    var updated = cachedItems!
+                        .Select(x =>
+                        {
+                            if (x is Dtos.WorkshopItem w && w.Id == workshopItemId)
+                            {
+                                w.Subscribers = Math.Max(0, w.Subscribers - 1);
+                                w.UserIsSubscribed = false;
+                                return w;
+                            }
+                            if (x is Dtos.LevelWorkshopItem lw && lw.Id == workshopItemId)
+                            {
+                                lw.Subscribers = Math.Max(0, lw.Subscribers - 1);
+                                lw.UserIsSubscribed = false;
+                                return lw;
+                            }
+                            if (x is Dtos.MachineWorkshopItem mw && mw.Id == workshopItemId)
+                            {
+                                mw.Subscribers = Math.Max(0, mw.Subscribers - 1);
+                                mw.UserIsSubscribed = false;
+                                return mw;
+                            }
+                            return x;
+                        })
+                        .ToList();
+                    cache.Set("WorkshopItems", updated);
+                    cache.Set("LastPlayerGetId", userId);
+                }
                 return true;
             }
 
@@ -474,6 +620,20 @@ namespace TuringMachinesAPI.Services
             db.Reviews.RemoveRange(reviews);
             db.WorkshopItems.Remove(workshopItem!);
             db.SaveChanges();
+
+            if (cache.TryGetValue("WorkshopItems", out List<object>? cachedItems))
+            {
+                var updated = cachedItems!
+                    .Where(x =>
+                        (x is Dtos.WorkshopItem w && w.Id != workshopItemId) ||
+                        (x is Dtos.LevelWorkshopItem lw && lw.Id != workshopItemId) ||
+                        (x is Dtos.MachineWorkshopItem mw && mw.Id != workshopItemId)
+                    )
+                    .ToList();
+
+                cache.Set("WorkshopItems", updated);
+                cache.Remove("LastPlayerGetId");
+            }
             return true;
         }
     }

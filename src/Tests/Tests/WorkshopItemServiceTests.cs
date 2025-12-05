@@ -44,6 +44,8 @@ namespace TuringMachinesAPITests.Tests
                 db.Database.ExecuteSqlRaw(sql);
                 db.SaveChanges();
             }
+
+            service.GetAll(null, 1);
         }
 
         public void Dispose()

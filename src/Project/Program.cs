@@ -141,6 +141,7 @@ builder.Services.AddSignalR();
 
 builder.Services.AddSingleton<ICryptoService, AesCryptoService>();
 builder.Services.AddSingleton<DiscordWebhookService>();
+builder.Services.AddMemoryCache();
 
 builder.Services.AddScoped<AdminLogService>();
 builder.Services.AddScoped<WorkshopItemService>();
@@ -175,11 +176,33 @@ catch (Exception ex)
     throw new Exception("Migração falhou, não foi possível migrar a base de dados.", ex);
 }
 
-if (app.Environment.IsDevelopment())
+using (var scope_cache = app.Services.CreateScope())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    var playerService = scope_cache.ServiceProvider.GetRequiredService<PlayerService>();
+    var players = playerService.GetAllPlayers();
+
+    if (players.Any())
+    {
+        var leaderboardService = scope_cache.ServiceProvider.GetRequiredService<LeaderboardService>();
+        leaderboardService.GetLeaderboard();
+
+        var workshopItemService = scope_cache.ServiceProvider.GetRequiredService<WorkshopItemService>();
+        workshopItemService.GetAll(null, players.First().Id);
+
+        var lobbyService = scope_cache.ServiceProvider.GetRequiredService<LobbyService>();
+        lobbyService.GetAll();
+
+        var AdminLogService = scope_cache.ServiceProvider.GetRequiredService<AdminLogService>();
+        AdminLogService.GetAllAdminLogs();
+    }
 }
+
+
+    if (app.Environment.IsDevelopment())
+    {
+        app.UseSwagger();
+        app.UseSwaggerUI();
+    }
 
 app.UseHttpsRedirection();
 app.UseCors();
@@ -191,3 +214,4 @@ app.MapControllers();
 app.MapHub<LobbyHub>("/hubs/lobby");
 
 app.Run();
+
