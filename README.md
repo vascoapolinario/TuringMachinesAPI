@@ -171,6 +171,7 @@ Selected endpoints:
 | Method | Route                 | Description                                                       | Auth |
 |--------|-----------------------|-------------------------------------------------------------------|------|
 | GET    | `/leaderboard`        | Get leaderboard entries (global or per-player)                    | Yes  |
+| GET    | `/leaderboard/levels` | Get the list of leaderboard levels                                | Yes  |
 | POST   | `/leaderboard`        | Submit a new result for the current user                          | Yes  |
 | POST   | `/leaderboard/level`  | Register a new leaderboard level (name, category, workshop link)  | Yes (Admin) |
 | DELETE | `/leaderboard`        | Delete a player's submission                                      | Yes (Admin) |

@@ -185,6 +185,7 @@ using (var scope_cache = app.Services.CreateScope())
     {
         var leaderboardService = scope_cache.ServiceProvider.GetRequiredService<LeaderboardService>();
         leaderboardService.GetLeaderboard();
+        leaderboardService.GetAllLeaderboardLevels();
 
         var workshopItemService = scope_cache.ServiceProvider.GetRequiredService<WorkshopItemService>();
         workshopItemService.GetAll(null, players.First().Id);

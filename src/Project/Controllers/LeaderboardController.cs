@@ -25,7 +25,7 @@ namespace TuringMachinesAPI.Controllers
         [ProducesResponseType(typeof(IEnumerable<LevelSubmission>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
-        public IActionResult GetLeaderboard(bool? Player, string? levelName)
+        public IActionResult GetLeaderboard([FromQuery] bool? Player, [FromQuery] string? levelName)
         {
             if (Player == null || Player == false)
             {
@@ -36,6 +36,16 @@ namespace TuringMachinesAPI.Controllers
                 int PlayerId = int.Parse(User.FindFirst("id")!.Value);
                 return Ok(leaderboardService.GetPlayerLeaderboard(PlayerId, levelName));
             }
+        }
+
+        [HttpGet("levels")]
+        [Authorize]
+        [ProducesResponseType(typeof(IEnumerable<LeaderboardLevel>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+        public IActionResult GetLevels()
+        {
+            return Ok(leaderboardService.GetAllLeaderboardLevels());
         }
 
         [Authorize]

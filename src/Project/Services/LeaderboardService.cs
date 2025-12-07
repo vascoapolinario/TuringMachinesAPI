@@ -237,6 +237,26 @@ namespace TuringMachinesAPI.Services
             };
         }
 
+        public IEnumerable<LeaderboardLevel> GetAllLeaderboardLevels()
+        {
+            if (cache.TryGetValue("LeaderboardLevels", out IEnumerable<LeaderboardLevel>? cachedLevels))
+            {
+                return cachedLevels ?? Enumerable.Empty<LeaderboardLevel>();
+            }
+            var levels = db.LeaderboardLevels
+                .AsNoTracking()
+                .Select(l => new Dtos.LeaderboardLevel
+                {
+                    Id = l.Id,
+                    Name = l.Name,
+                    Category = l.Category,
+                    WorkshopItemId = l.WorkshopItemId
+                })
+                .ToList();
+            cache.Set("LeaderboardLevels", levels);
+            return levels;
+        }
+
         public bool DeletePlayerSubmission(string playerName, string levelName)
         {
             int inputPlayerId = 0;

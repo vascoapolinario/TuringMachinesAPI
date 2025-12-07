@@ -73,6 +73,19 @@ namespace TuringMachinesAPITests.Tests
         }
 
         [Fact]
+        public void GetLeaderboardLevels_shouldReturnCorrectly()
+        {
+            var levelA = service.AddLeaderboardLevel("LevelA", "Starter");
+            var levelB = service.AddLeaderboardLevel("LevelB", "Advanced");
+            Assert.NotNull(levelA);
+            Assert.NotNull(levelB);
+
+            var levels = service.GetAllLeaderboardLevels();
+            Assert.Contains(levels, l => l.Name == "LevelA" && l.Category == "Starter");
+            Assert.Contains(levels, l => l.Name == "LevelB" && l.Category == "Advanced");
+        }
+
+        [Fact]
         public void AddLevelSubmissions_shouldAddSuccessfully()
         {
             var level = service.AddLeaderboardLevel("Level3", "Starter");
