@@ -27,7 +27,6 @@ namespace TuringMachinesAPITests.Tests
             applicationDomain.Services.AddDbContext<TuringMachinesDbContext>(o => o.UseNpgsql(_connectionString));
             applicationDomain.Services.AddScoped<PlayerService>();
             applicationDomain.Services.AddScoped<PasswordHashService>();
-            applicationDomain.Services.AddScoped<ICryptoService, AesCryptoService>();
 
             var provider = applicationDomain.ServiceProvider;
             service = provider.GetRequiredService<PlayerService>();

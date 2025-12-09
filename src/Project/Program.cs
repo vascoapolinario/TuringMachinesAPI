@@ -140,7 +140,6 @@ builder.Services.AddDbContext<TuringMachinesDbContext>(o =>
 builder.Services.AddSignalR();
 
 builder.Services.AddSingleton<PasswordHashService>();
-builder.Services.AddSingleton<ICryptoService, AesCryptoService>();
 builder.Services.AddSingleton<DiscordWebhookService>();
 builder.Services.AddMemoryCache();
 

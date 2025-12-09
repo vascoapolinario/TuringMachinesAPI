@@ -352,8 +352,6 @@ Player passwords are never stored in clear text.
 
 Instead of reversible encryption, the system now uses a one-way cryptographic hash based on PBKDF2 (Rfc2898DeriveBytes). This means passwords cannot be decrypted, even by the server.
 
-Temporarily, the AesCryptoService is still used to migrate old passwords.
-
 ### JWT authentication
 
 - Login issues a signed JWT with user id, username and role in the claims.  

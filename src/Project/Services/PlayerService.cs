@@ -15,15 +15,13 @@ namespace TuringMachinesAPI.Services
     {
         private readonly TuringMachinesDbContext db;
         private readonly PasswordHashService PasswordService;
-        private readonly ICryptoService CryptoService;
         private readonly IConfiguration _config;
         private readonly IMemoryCache cache;
 
-        public PlayerService(TuringMachinesDbContext dbContext, PasswordHashService _PasswordService, ICryptoService _CryptoService, IConfiguration config, IMemoryCache memoryCache)
+        public PlayerService(TuringMachinesDbContext dbContext, PasswordHashService _PasswordService, IConfiguration config, IMemoryCache memoryCache)
         {
             db = dbContext;
             PasswordService = _PasswordService;
-            CryptoService = _CryptoService;
             _config = config;
             cache = memoryCache;
         }
@@ -50,26 +48,6 @@ namespace TuringMachinesAPI.Services
                     LastLogin = p.LastLogin
                 })
                 .ToList();
-
-            foreach (var player in players)
-            {
-                if (!player.Password!.Contains('.'))
-                {
-                    try
-                    {
-                        var decryptedPassword = CryptoService.Decrypt(player.Password);
-                        var hashedPassword = PasswordService.Hash(decryptedPassword!);
-                        var entity = db.Players.First(p => p.Id == player.Id);
-                        entity.Password = hashedPassword;
-                        db.SaveChanges();
-                        player.Password = hashedPassword;
-                    }
-                    catch
-                    {
-                        continue;
-                    }
-                }
-            }
 
             cache.Set("Players", players);
             return players;
