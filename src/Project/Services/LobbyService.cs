@@ -316,6 +316,12 @@ namespace TuringMachinesAPI.Services
                             .FirstOrDefault() ?? "Unknown";
                     }
                     var updatedPlayerList = lobbyDto.LobbyPlayers!.ToList();
+                    if (playerId == lobby.HostPlayerId)
+                    {
+                        lobbyDtoList.Remove(lobbyDto);
+                        cache.Set("Lobbies", lobbyDtoList);
+                        return true;
+                    }
                     updatedPlayerList.Remove(playerName);
                     lobbyDto.LobbyPlayers = updatedPlayerList;
                 }
