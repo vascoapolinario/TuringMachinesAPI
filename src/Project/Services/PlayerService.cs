@@ -14,13 +14,15 @@ namespace TuringMachinesAPI.Services
     public class PlayerService
     {
         private readonly TuringMachinesDbContext db;
+        private readonly PasswordHashService PasswordService;
         private readonly ICryptoService CryptoService;
         private readonly IConfiguration _config;
         private readonly IMemoryCache cache;
 
-        public PlayerService(TuringMachinesDbContext dbContext, ICryptoService _CryptoService, IConfiguration config, IMemoryCache memoryCache)
+        public PlayerService(TuringMachinesDbContext dbContext, PasswordHashService _PasswordService, ICryptoService _CryptoService, IConfiguration config, IMemoryCache memoryCache)
         {
             db = dbContext;
+            PasswordService = _PasswordService;
             CryptoService = _CryptoService;
             _config = config;
             cache = memoryCache;
@@ -42,12 +44,32 @@ namespace TuringMachinesAPI.Services
                 {
                     Id = p.Id,
                     Username = p.Username,
-                    Password = CryptoService.Decrypt(p.Password!),
+                    Password = p.Password,
                     Role = p.Role,
                     CreatedAt = p.CreatedAt,
                     LastLogin = p.LastLogin
                 })
                 .ToList();
+
+            foreach (var player in players)
+            {
+                if (!player.Password!.Contains('.'))
+                {
+                    try
+                    {
+                        var decryptedPassword = CryptoService.Decrypt(player.Password);
+                        var hashedPassword = PasswordService.Hash(decryptedPassword!);
+                        var entity = db.Players.First(p => p.Id == player.Id);
+                        entity.Password = hashedPassword;
+                        db.SaveChanges();
+                        player.Password = hashedPassword;
+                    }
+                    catch
+                    {
+                        continue;
+                    }
+                }
+            }
 
             cache.Set("Players", players);
             return players;
@@ -95,26 +117,43 @@ namespace TuringMachinesAPI.Services
             var entity = new Entities.Player
             {
                 Username = player.Username,
-                Password = CryptoService.Encrypt(player.Password),
+                Password = PasswordService.Hash(player.Password),
                 CreatedAt = DateTime.UtcNow,
                 LastLogin = null
             };
             db.Players.Add(entity);
             db.SaveChanges();
             player.Id = entity.Id;
+
+            Dtos.Player newPlayer = new Dtos.Player
+            {
+                Id = entity.Id,
+                Username = entity.Username,
+                Password = entity.Password,
+                Role = entity.Role,
+                CreatedAt = entity.CreatedAt,
+                LastLogin = entity.LastLogin
+            };
+
             if (cache.TryGetValue("Players", out IEnumerable<Dtos.Player>? cachedPlayers))
             {
                 var updatedPlayers = cachedPlayers?.ToList() ?? new List<Dtos.Player>();
-                updatedPlayers.Add(player);
+                updatedPlayers.Add(newPlayer);
                 cache.Set("Players", updatedPlayers);
             }
-            return player;
+            else
+            {
+                cache.Set("Players", new List<Dtos.Player> { newPlayer });
+            }
+
+            return newPlayer;
+
         }
 
         public Player? Authenticate(string username, string password)
         {
             var Player = GetAllPlayers()
-                .FirstOrDefault(p => p.Username == username && p.Password == password);
+                .FirstOrDefault(p => p.Username == username && PasswordService.Verify(password, p.Password));
             if (Player is not null)
             {
                 var entity = db.Players.First(p => p.Id == Player.Id);

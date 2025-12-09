@@ -95,7 +95,7 @@ The project is designed to be used both in **single-player** (just workshop + au
 The **Players** module handles registration, login and basic identity:
 
 - Register new players with unique usernames
-- Store passwords **encrypted** using an AES-based crypto service
+- Store passwords **encrypted** using a hash password service
 - Issue **JWT tokens** for authenticated requests
 - Expose a `/players/verify` endpoint to validate the token and fetch basic user info
 - `NonSensitivePlayer` DTOs ensure passwords never leave the server
@@ -348,21 +348,11 @@ The API is intended to be deployed with the following security properties.
 
 ### Encrypted passwords
 
-Player passwords are never stored in clear text.  
-The project uses an `ICryptoService` implementation (e.g. `AesCryptoService`) to **encrypt credentials at rest** using a key and salt supplied via configuration:
+Player passwords are never stored in clear text.
 
-- Locally: `appsettings.Development.LocalMachine.json` (not committed)  
-- Production: environment variables
+Instead of reversible encryption, the system now uses a one-way cryptographic hash based on PBKDF2 (Rfc2898DeriveBytes). This means passwords cannot be decrypted, even by the server.
 
-Example: 
-```json
-{
-  "Crypto": {
-    "Key": "REPLACE_WITH_SECURE_KEY",
-    "Salt": "REPLACE_WITH_SECURE_SALT"
-  }
-}
-```
+Temporarily, the AesCryptoService is still used to migrate old passwords.
 
 ### JWT authentication
 

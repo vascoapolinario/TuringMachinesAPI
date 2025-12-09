@@ -10,13 +10,13 @@ namespace TuringMachinesAPI.Services
     public class LobbyService
     {
         private readonly TuringMachinesDbContext db;
-        private readonly ICryptoService CryptoService;
+        private readonly PasswordHashService PasswordService;
         private readonly IMemoryCache cache;
 
-        public LobbyService(TuringMachinesDbContext context, ICryptoService cryptoService, IMemoryCache memoryCache)
+        public LobbyService(TuringMachinesDbContext context, PasswordHashService _PasswordService, IMemoryCache memoryCache)
         {
             db = context;
-            CryptoService = cryptoService;
+            PasswordService = _PasswordService;
             cache = memoryCache;
         }
 
@@ -156,11 +156,16 @@ namespace TuringMachinesAPI.Services
                     return null;
             }
 
+            string? passwordHash = null;
+            if (password != null) {
+                passwordHash = PasswordService.Hash(password);
+            }
+
             var lobby = new Entities.Lobby
             {
                 Code = code,
                 Name = name,
-                Password = CryptoService.Encrypt(password),
+                Password = passwordHash,
                 HostPlayerId = hostPlayerId,
                 SelectedLevelId = selectedLevelId,
                 MaxPlayers = max_players,
@@ -232,7 +237,7 @@ namespace TuringMachinesAPI.Services
             if (lobby == null)
                 return false;
 
-            if (!string.IsNullOrEmpty(lobby.Password) && CryptoService.Decrypt(lobby.Password) != password)
+            if (!string.IsNullOrEmpty(lobby.Password) && !PasswordService.Verify(password, lobby.Password))
                 return false;
 
             if (lobby.LobbyPlayers == null)

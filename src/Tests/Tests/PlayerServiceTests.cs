@@ -26,6 +26,8 @@ namespace TuringMachinesAPITests.Tests
 
             applicationDomain.Services.AddDbContext<TuringMachinesDbContext>(o => o.UseNpgsql(_connectionString));
             applicationDomain.Services.AddScoped<PlayerService>();
+            applicationDomain.Services.AddScoped<PasswordHashService>();
+            applicationDomain.Services.AddScoped<ICryptoService, AesCryptoService>();
 
             var provider = applicationDomain.ServiceProvider;
             service = provider.GetRequiredService<PlayerService>();
@@ -60,7 +62,6 @@ namespace TuringMachinesAPITests.Tests
             Assert.NotNull(result);
             Assert.True(result.Id > 0);
             Assert.Equal("testUser", result.Username);
-            Assert.Equal("1234", result.Password);
             Assert.Equal(DateTime.UtcNow, result.CreatedAt, TimeSpan.FromSeconds(5));
         }
 

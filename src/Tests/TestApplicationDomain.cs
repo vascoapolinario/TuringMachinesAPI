@@ -51,7 +51,7 @@ namespace TuringMachinesAPITests
             this.configuration = configuration;
             services.AddScoped<IConfiguration>(f => configuration);
             Services.AddMemoryCache();
-            Services.AddScoped<ICryptoService, AesCryptoService>();
+            Services.AddScoped<PasswordHashService>();
         }
     }
 }

@@ -28,7 +28,6 @@ namespace TuringMachinesAPITests.Tests
             Assert.NotNull(connectionString);
 
             applicationDomain.Services.AddDbContext<TuringMachinesDbContext>(o => o.UseNpgsql(connectionString));
-            applicationDomain.Services.AddSingleton<ICryptoService, AesCryptoService>();
             applicationDomain.Services.AddScoped<LeaderboardService>();
 
             var provider = applicationDomain.ServiceProvider;
