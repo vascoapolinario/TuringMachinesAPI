@@ -71,6 +71,17 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                     context.Fail("User does not exist or claims are outdated.");
                     return Task.CompletedTask;
                 }
+
+                bool isBanned = playerService.IsPlayerBanned(out string? banReason, out DateTime? bannedUntil, username);
+                if (isBanned)
+                {
+                    string banMessage = bannedUntil.HasValue
+                        ? $"You are banned until {bannedUntil.Value:u}. Reason: {banReason}"
+                        : $"You are permanently banned. Reason: {banReason}";
+                    context.Fail(banMessage);
+                    return Task.CompletedTask;
+                }
+
                 return Task.CompletedTask;
             }
         };

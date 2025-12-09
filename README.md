@@ -101,6 +101,7 @@ The **Players** module handles registration, login and basic identity:
 - `NonSensitivePlayer` DTOs ensure passwords never leave the server
 - Only admins are able to see the list of all players or players by id
 - The DateTime of AccountCreation and Last Login are saved in the db and acessed through the get requests (By Admins) Or by the player themselves with the verify GET.
+- A player can be banned temporarily or permanently, depending on if dateuntil unban is given.
 
 Key endpoints:
 
@@ -110,6 +111,8 @@ Key endpoints:
 | GET    | `/players/{id}`    | Get player by id            | Yes  |
 | POST   | `/players`         | Register new player         | No   |
 | POST   | `/players/login`   | Login, return JWT           | No   |
+| POST   | `/players/{id}/ban`| Ban a player by id          | Yes (Admin) |
+| POST   | `/players/{id}/unban`| Unban a player by id         | Yes (Admin) |
 | GET    | `/players/verify`  | Verify token and return user| Yes  |
 | DELETE | `/players/{id}`    | Delete a player account     | Yes  |
 

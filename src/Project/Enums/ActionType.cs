@@ -5,6 +5,8 @@
         Create,
         Update,
         Delete,
-        Kick
+        Kick,
+        Ban,
+        Unban
     }
 }

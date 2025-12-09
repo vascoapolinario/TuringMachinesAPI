@@ -22,5 +22,8 @@ namespace TuringMachinesAPI.Dtos
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public DateTime? LastLogin { get; set; }
+
+        public DateTime? BannedUntil { get; set; }
+        public string? BanReason { get; set; }
     }
 }

@@ -85,12 +85,23 @@ namespace TuringMachinesAPI.Controllers
         /// Login a player and receive a JWT token.
         /// </summary>
         [HttpPost("login")]
+        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         public IActionResult Login([FromBody] Player credentials)
         {
             if (credentials == null ||
                 string.IsNullOrEmpty(credentials.Username) ||
                 string.IsNullOrEmpty(credentials.Password))
                 return Unauthorized(new { message = "Invalid credentials." });
+
+            if (_playerService.IsPlayerBanned(out string? banReason, out DateTime? bannedUntil, credentials.Username))
+            {
+                string banMessage = bannedUntil.HasValue
+                    ? $"You are banned until {bannedUntil.Value:u}. Reason: {banReason}"
+                    : $"You are permanently banned. Reason: {banReason}";
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = banMessage });
+            }
 
             var player = _playerService.Authenticate(credentials.Username, credentials.Password);
             if (player == null)
@@ -139,7 +150,7 @@ namespace TuringMachinesAPI.Controllers
         {
             int playerId = int.Parse(_playerService.GetClaimsFromUser(User).Id ?? "-1");
             if (!_playerService.IsAdmin(playerId) && playerId != id)
-                return Forbid("You do not have permission to delete this player.");
+                return Forbid();
 
             await adminLogService.CreateAdminLog(ActorId: playerId, ActionType.Delete, TargetEntityType.Player, id);
             var success = _playerService.DeletePlayer(id);
@@ -147,6 +158,57 @@ namespace TuringMachinesAPI.Controllers
                 return NotFound($"Player with ID {id} not found.");
 
             return Ok(new { message = $"Player with ID {id} has been deleted." });
+        }
+
+        /// <summary>
+        /// Ban a player by ID
+        /// </summary>
+        /// <param name="id">The ID of the player to ban.</param>
+        /// <param name="until">The date until the player is banned.</param>
+        /// <param name="reason">The reason for the ban.</param>
+        [HttpPost("{id:int}/ban")]
+        [Authorize(Roles = "Admin")]
+        [ProducesResponseType(typeof(Player), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> BanPlayer(int id, [FromQuery] DateTime? until, [FromQuery] string? reason)
+        {
+            if (string.IsNullOrEmpty(reason))
+                return BadRequest(new { message = "Ban reason must be provided." });
+
+            var targetPlayer = _playerService.GetPlayerById(id);
+            if (targetPlayer is not null && targetPlayer.Role == "Admin")
+                return Forbid();
+
+            var bannedPlayer = _playerService.BanPlayer(id, until, reason);
+            if (bannedPlayer is null)
+                return NotFound($"Player with ID {id} not found.");
+            int adminId = int.Parse(_playerService.GetClaimsFromUser(User).Id ?? "-1");
+            await adminLogService.CreateAdminLog(ActorId: adminId, ActionType.Ban, TargetEntityType.Player, id);
+            return Ok(_playerService.NonSensitivePlayer(bannedPlayer));
+        }
+
+        /// <summary>
+        /// Unban a player by ID
+        /// </summary>
+        /// <param name="id">The ID of the player to unban.</param>
+        [HttpPost("{id:int}/unban")]
+        [Authorize(Roles = "Admin")]
+        [ProducesResponseType(typeof(Player), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+        public async Task<IActionResult> UnbanPlayer(int id)
+        {
+            var unbannedPlayer = _playerService.UnbanPlayer(id);
+            if (unbannedPlayer is null)
+                return NotFound($"Player with ID {id} not found.");
+            int adminId = int.Parse(_playerService.GetClaimsFromUser(User).Id ?? "-1");
+            await adminLogService.CreateAdminLog(ActorId: adminId, ActionType.Unban, TargetEntityType.Player, id);
+            return Ok(_playerService.NonSensitivePlayer(unbannedPlayer));
         }
     }
 }

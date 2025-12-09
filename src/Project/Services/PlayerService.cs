@@ -45,7 +45,9 @@ namespace TuringMachinesAPI.Services
                     Password = p.Password,
                     Role = p.Role,
                     CreatedAt = p.CreatedAt,
-                    LastLogin = p.LastLogin
+                    LastLogin = p.LastLogin,
+                    BannedUntil = p.BannedUntil,
+                    BanReason = p.BanReason
                 })
                 .ToList();
 
@@ -132,6 +134,7 @@ namespace TuringMachinesAPI.Services
         {
             var Player = GetAllPlayers()
                 .FirstOrDefault(p => p.Username == username && PasswordService.Verify(password, p.Password));
+
             if (Player is not null)
             {
                 var entity = db.Players.First(p => p.Id == Player.Id);
@@ -140,11 +143,11 @@ namespace TuringMachinesAPI.Services
                 cache.Remove("Players");
                 return new Player
                 {
-                    Id = Player.Id,
-                    Username = Player.Username,
-                    Role = Player.Role,
-                    CreatedAt = Player.CreatedAt,
-                    LastLogin = entity.LastLogin
+                    Id = entity.Id,
+                    Username = entity.Username,
+                    Role = entity.Role,
+                    CreatedAt = entity.CreatedAt,
+                    LastLogin = entity.LastLogin,
                 };
             }
             return Player;
@@ -192,7 +195,9 @@ namespace TuringMachinesAPI.Services
                 Password = "",
                 Role = SensitivePlayer.Role,
                 CreatedAt = SensitivePlayer.CreatedAt,
-                LastLogin = SensitivePlayer.LastLogin
+                LastLogin = SensitivePlayer.LastLogin,
+                BannedUntil = SensitivePlayer.BannedUntil,
+                BanReason = SensitivePlayer.BanReason
             };
         }
 
@@ -272,6 +277,139 @@ namespace TuringMachinesAPI.Services
             return player is not null &&
                    player.Username == username &&
                    player.Role == role;
+        }
+
+        public Dtos.Player? BanPlayer(int id, DateTime? until, string reason)
+        {
+            var player = db.Players.FirstOrDefault(p => p.Id == id);
+            if (player == null) return null;
+            player.BannedUntil = until;
+            player.BanReason = reason;
+            db.SaveChanges();
+            Dtos.Player? playerDto = new Dtos.Player
+            {
+                Id = player.Id,
+                Username = player.Username,
+                Role = player.Role,
+                CreatedAt = player.CreatedAt,
+                LastLogin = player.LastLogin,
+                BannedUntil = player.BannedUntil,
+                BanReason = player.BanReason
+            };
+
+            if (cache.TryGetValue("Players", out IEnumerable<Dtos.Player>? cachedPlayers))
+            {
+                var updatedPlayers = cachedPlayers?.ToList() ?? new List<Dtos.Player>();
+                var playerToUpdate = updatedPlayers.FirstOrDefault(p => p.Id == id);
+                if (playerToUpdate != null)
+                {
+                    playerToUpdate.BannedUntil = until;
+                    playerToUpdate.BanReason = reason;
+                    cache.Set("Players", updatedPlayers);
+                }
+            }
+            return playerDto;
+        }
+
+        public Dtos.Player? UnbanPlayer(int id)
+        {
+            var player = db.Players.FirstOrDefault(p => p.Id == id);
+            if (player == null) return null;
+
+            player.BannedUntil = null;
+            player.BanReason = null;
+            db.SaveChanges();
+
+            Dtos.Player? playerDto = new Dtos.Player
+            {
+                Id = player.Id,
+                Username = player.Username,
+                Role = player.Role,
+                CreatedAt = player.CreatedAt,
+                LastLogin = player.LastLogin,
+            };
+
+            if (cache.TryGetValue("Players", out IEnumerable<Dtos.Player>? cachedPlayers))
+            {
+                var updatedPlayers = cachedPlayers?.ToList() ?? new List<Dtos.Player>();
+                var playerToUpdate = updatedPlayers.FirstOrDefault(p => p.Id == id);
+                if (playerToUpdate != null)
+                {
+                    playerToUpdate.BannedUntil = null;
+                    playerToUpdate.BanReason = null;
+                    cache.Set("Players", updatedPlayers);
+                }
+            }
+
+            return playerDto;
+
+        }
+
+        public bool IsPlayerBanned(out string? banReason, out DateTime? bannedUntil, string? username = null, int? playerId = null)
+        {
+            if (cache.TryGetValue("Players", out IEnumerable<Dtos.Player>? cachedPlayers) && cachedPlayers.Any())
+            {
+                var cachedPlayer = cachedPlayers.FirstOrDefault(p =>
+                    (username != null && p.Username == username) ||
+                    (playerId != null && p.Id == playerId));
+
+                if (cachedPlayer != null)
+                {
+                    banReason = cachedPlayer.BanReason;
+                    bannedUntil = cachedPlayer.BannedUntil;
+                    bool isBanned = (cachedPlayer.BannedUntil != null && cachedPlayer.BannedUntil > DateTime.UtcNow) ||
+                                    (cachedPlayer.BannedUntil == null && !string.IsNullOrEmpty(cachedPlayer.BanReason));
+                    if (cachedPlayer.BannedUntil != null && cachedPlayer.BannedUntil <= DateTime.UtcNow)
+                    {
+                        cachedPlayer.BanReason = null;
+                        cachedPlayer.BannedUntil = null;
+                        var playerEntity = db.Players.FirstOrDefault(p =>
+                            (username != null && p.Username == username) ||
+                            (playerId != null && p.Id == playerId));
+                        if (playerEntity != null)
+                        {
+                            playerEntity.BanReason = null;
+                            playerEntity.BannedUntil = null;
+                            db.SaveChanges();
+                        }
+
+                        var updated = cachedPlayers?.ToList();
+                        var cachePlayer = updated?.FirstOrDefault(p => p.Id == cachedPlayer.Id);
+                        if (cachePlayer != null)
+                        {
+                            cachePlayer.BanReason = null;
+                            cachePlayer.BannedUntil = null;
+                            cache.Set("Players", updated);
+                        }
+                        return false;
+                    }
+
+                    return isBanned;
+                }
+            }
+
+            var player = db.Players.FirstOrDefault(p =>
+                (username != null && p.Username == username) ||
+                (playerId != null && p.Id == playerId));
+
+            banReason = null;
+            bannedUntil = null;
+
+            if (player != null)
+            {
+                banReason = player.BanReason;
+                bannedUntil = player.BannedUntil;
+                if (player.BannedUntil != null && player.BannedUntil <= DateTime.UtcNow)
+                {
+                    player.BanReason = null;
+                    player.BannedUntil = null;
+                    db.SaveChanges();
+                    return false;
+                }
+
+                return player.IsBanned;
+            }
+            return false;
         }
     }
 }

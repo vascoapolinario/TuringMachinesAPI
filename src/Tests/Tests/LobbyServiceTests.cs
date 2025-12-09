@@ -196,6 +196,22 @@ namespace TuringMachinesAPITests.Tests
         }
 
         [Fact]
+
+        public void JoinLobby_ShouldSucceed_ForProtectedLobby_WithCorrectPassword()
+        {
+            int levelId = CreateLevelWorkshopItem();
+            var created = service.Create(1, "Protected Join Lobby", levelId, 4, "secret");
+            Assert.NotNull(created);
+            bool joined = service.JoinLobby(created!.Code, playerId: 2, password: "secret");
+            Assert.True(joined);
+            using var scope = applicationDomain.ServiceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<TuringMachinesDbContext>();
+            var lobby = db.Lobbies.First(l => l.Id == created.Id);
+            Assert.Contains(1, lobby.LobbyPlayers!);
+            Assert.Contains(2, lobby.LobbyPlayers!);
+        }
+
+        [Fact]
         public void JoinLobby_ShouldFail_WhenWrongPassword()
         {
             int levelId = CreateLevelWorkshopItem();

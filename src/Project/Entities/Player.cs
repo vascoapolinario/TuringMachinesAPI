@@ -24,5 +24,9 @@ namespace TuringMachinesAPI.Entities
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public DateTime? LastLogin { get; set; }
+
+        public DateTime? BannedUntil { get; set; }
+        public string? BanReason { get; set; }
+        public bool IsBanned => BannedUntil == null ? !string.IsNullOrEmpty(BanReason) : BannedUntil > DateTime.UtcNow;
     }
 }

@@ -153,5 +153,59 @@ namespace TuringMachinesAPITests.Tests
             bool exists = service.PlayerExistsAsIs("99999", "nonUser", "User");
             Assert.False(exists);
         }
+
+        [Fact]
+        public void TemporaryBanPlayer_ShouldBanSuccessfully()
+        {
+            var player = service.AddPlayer(new Player { Username = "banUser", Password = "pass" });
+            Assert.NotNull(player);
+            var bannedPlayer = service.BanPlayer(player.Id, DateTime.UtcNow.AddDays(1), "Cheating");
+            Assert.NotNull(bannedPlayer);
+            bool isBanned = service.IsPlayerBanned(out string? banReason, out DateTime? bannedUntil, null, player.Id);
+            Assert.True(isBanned);
+            Assert.Equal(bannedPlayer.BannedUntil, bannedUntil);
+            Assert.Equal(bannedPlayer.BanReason, banReason);
+        }
+
+        [Fact]
+
+        public void UnbanPlayer_ShouldUnbanSuccessfully()
+        {
+            var player = service.AddPlayer(new Player { Username = "unbanUser", Password = "pass" });
+            Assert.NotNull(player);
+            service.BanPlayer(player.Id, DateTime.UtcNow.AddDays(1), "Violation");
+            var unbannedPlayer = service.UnbanPlayer(player.Id);
+            Assert.NotNull(unbannedPlayer);
+            bool isBanned = service.IsPlayerBanned(out string? banReason, out DateTime? bannedUntil, null, player.Id);
+            Assert.False(isBanned);
+            Assert.Null(banReason);
+            Assert.Null(bannedUntil);
+        }
+
+        [Fact]
+        public void BanShouldExpireAfterDate()
+        {
+            var player = service.AddPlayer(new Player { Username = "tempBanUser", Password = "pass" });
+            Assert.NotNull(player);
+            service.BanPlayer(player.Id, DateTime.UtcNow.AddSeconds(1), "Temporary Ban");
+            bool isBannedInitially = service.IsPlayerBanned(out _, out _, null, player.Id);
+            Assert.True(isBannedInitially);
+            System.Threading.Thread.Sleep(2000);
+            bool isBannedAfter = service.IsPlayerBanned(out _, out _, null, player.Id);
+            Assert.False(isBannedAfter);
+        }
+
+        [Fact]
+        public void PermanentBanPlayer_ShouldBanSuccessfully()
+        {
+            var player = service.AddPlayer(new Player { Username = "permBanUser", Password = "pass" });
+            Assert.NotNull(player);
+            var bannedPlayer = service.BanPlayer(player.Id, null, "Serious Violation");
+            Assert.NotNull(bannedPlayer);
+            bool isBanned = service.IsPlayerBanned(out string? banReason, out DateTime? bannedUntil, null, player.Id);
+            Assert.True(isBanned);
+            Assert.Null(bannedUntil);
+            Assert.Equal(bannedPlayer.BanReason, banReason);
+        }
     }
 }
