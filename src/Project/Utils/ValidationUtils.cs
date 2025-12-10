@@ -17,7 +17,7 @@ namespace TuringMachinesAPI.Utils
             if (Regex.IsMatch(input, @"https?://|www\.|\.com|\.net|\.org|\.io|\.gg|\.xyz|@", RegexOptions.IgnoreCase))
                 return true;
 
-            if (Regex.IsMatch(input, @"[^a-zA-Z0-9\s_\-.,!?()\""]", RegexOptions.IgnoreCase))
+            if (Regex.IsMatch(input, @"[^a-zA-Z0-9\s_\-.,!?()\[\]{}\<>""'\/\\]", RegexOptions.IgnoreCase))
                 return true;
 
             if (input.Any(ch => char.IsControl(ch) && ch != '\n' && ch != '\r'))
@@ -26,7 +26,11 @@ namespace TuringMachinesAPI.Utils
             var filter = new ProfanityFilter.ProfanityFilter();
 
             if (filter.ContainsProfanity(input))
-                return true;
+            {
+                var detected = filter.DetectAllProfanities(input, removePartialMatches: true);
+
+                return detected.Count > 0;
+            }
 
             return false;
         }
@@ -48,6 +52,18 @@ namespace TuringMachinesAPI.Utils
             {
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Censorses disallowed words in the input string.
+        /// </summary>
+        public static string CensorDisallowedWords(string input)
+        {
+            var filter = new ProfanityFilter.ProfanityFilter();
+            if (!filter.ContainsProfanity(input))
+                return input;
+
+            return filter.CensorString(input);
         }
     }
 }

@@ -159,6 +159,7 @@ builder.Services.AddScoped<WorkshopItemService>();
 builder.Services.AddScoped<LobbyService>();
 builder.Services.AddScoped<PlayerService>();
 builder.Services.AddScoped<LeaderboardService>();
+builder.Services.AddScoped<CommunityService>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -206,6 +207,9 @@ using (var scope_cache = app.Services.CreateScope())
 
         var AdminLogService = scope_cache.ServiceProvider.GetRequiredService<AdminLogService>();
         AdminLogService.GetAllAdminLogs();
+
+        var communityService = scope_cache.ServiceProvider.GetRequiredService<CommunityService>();
+        communityService.GetDiscussions();
     }
 }
 

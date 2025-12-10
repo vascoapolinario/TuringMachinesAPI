@@ -4,6 +4,9 @@ TRUNCATE TABLE public."LevelWorkshopItems" RESTART IDENTITY CASCADE;
 TRUNCATE TABLE public."MachineWorkshopItems" RESTART IDENTITY CASCADE;
 TRUNCATE TABLE public."Lobbies" RESTART IDENTITY CASCADE;
 TRUNCATE TABLE public."AdminLogs" RESTART IDENTITY CASCADE;
+TRUNCATE TABLE public."Discussions" RESTART IDENTITY CASCADE;
+TRUNCATE TABLE public."Posts" RESTART IDENTITY CASCADE;
+TRUNCATE TABLE public."PostVotes" RESTART IDENTITY CASCADE;
 
 
 INSERT INTO public."Players" ("Id", "Username", "Role", "Password")
@@ -20,4 +23,6 @@ VALUES
 (10, 'Judy', 'User', 'OQMNCzUYK4l4iF0wS/pV8w==.Tn1KYu6PBmd51kaHle9GJefeqw0KVQ25Bw+7bWSz1hU=');
 
 SELECT setval(pg_get_serial_sequence('"Players"', 'Id'), COALESCE(MAX("Id"), 1)) FROM "Players";
-SELECT setval(pg_get_serial_sequence('"AdminLogs"', 'Id'), COALESCE(MAX("Id"), 1)) FROM "AdminLogs";
+SELECT setval(pg_get_serial_sequence('"Discussions"', 'Id'), COALESCE(MAX("Id"), 1)) FROM "Discussions";
+SELECT setval(pg_get_serial_sequence('"Posts"', 'Id'), COALESCE(MAX("Id"), 1)) FROM "Posts";
+SELECT setval(pg_get_serial_sequence('"PostVotes"', 'Id'), COALESCE(MAX("Id"), 1)) FROM "PostVotes";

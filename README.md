@@ -27,6 +27,7 @@ Website (Made by Gemini) that uses the API: [https://vapoli.tech/#/TuringSandbox
   - [Multiplayer Lobbies](#multiplayer-lobbies)
   - [Health Checks](#health-checks)
   - [Admin Logs](#admin-logs)
+  - [Community](#community)
 - [Real-Time Collaboration (SignalR)](#real-time-collaboration-signalr)
 - [Security & Data Handling](#security--data-handling)
 - [Validation & Content Filtering](#validation--content-filtering)
@@ -315,6 +316,134 @@ Removes a single log entry by id. Intended for cleanup or correcting mistakes in
 
 Deletes logs in bulk. If a `timeSpan` query parameter is provided (e.g. `7.00:00:00` for 7 days), only logs **older** than that span are removed; otherwise, all logs are deleted. This can be used to implement a log retention policy for self-hosted deployments.
 
+###  Community 
+
+The **Community** module adds a forum-style system inside the API, allowing players to discuss workshop items, ask for help or share tips.
+
+#### Features 
+
+* Create discussions with an **initial post**
+* Add posts to ongoing discussions
+* Author or admin can:
+
+  * Edit their own posts
+  * Delete their own posts (except the initial one)
+  * Delete entire discussions (removes all posts)
+* Discussions can be **closed** (no more replies)
+* The author (or an admin) can **mark a post as the answer**
+* Players can **vote** on posts:
+
+  * 👍 Like → stored as `Vote = 1`
+  * 👎 Dislike → stored as `Vote = -1`
+  * Toggling removes previous vote
+* Votes are stored in a separate link-table (`PostVotes`) to prevent collusion and repeated voting
+* Cache-aware implementation keeps discussion browsing fast and reduces DB load
+
+Votes are aggregated on retrieval:
+
+```csharp
+LikeCount    = SUM(vote == 1)
+DislikeCount = SUM(vote == -1)
+```
+
+Users may optionally request their own vote per post:
+
+```
+GET /community/discussions/{id}/posts?includeUserVote=true
+→ returns [{ post, userVote }]
+```
+
+Where `userVote ∈ {1, -1, null}`.
+
+---
+
+#### ⚙ Endpoints
+
+| Method | Route                                                      | Description                                   | Auth |
+| ------ | ---------------------------------------------------------- | --------------------------------------------- | ---- |
+| GET    | `/community/discussions`                                   | List all discussions                          | Yes  |
+| GET    | `/community/discussions/{id}`                              | Get a discussion by ID                        | Yes  |
+| POST   | `/community/discussions`                                   | Create a new discussion                       | Yes  |
+| POST   | `/community/discussions/{id}/post`                         | Add a post to a discussion                    | Yes  |
+| PUT    | `/community/posts/{postId}`                                | Edit own post                                 | Yes  |
+| DELETE | `/community/posts/{postId}`                                | Delete own post (not the initial one)         | Yes  |
+| POST   | `/community/discussions/{id}/toggle-closed`                | Close/reopen discussion (admin/author only)   | Yes  |
+| POST   | `/community/discussions/{id}/{postId}/choose-answer`       | Mark/unmark a post as answer                  | Yes  |
+| POST   | `/community/posts/{postId}/like`                           | Toggle like                                   | Yes  |
+| POST   | `/community/posts/{postId}/dislike`                        | Toggle dislike                                | Yes  |
+| GET    | `/community/discussions/{id}/posts?includeUserVote={bool}` | Get posts with optional user vote information | Yes  |
+| DELETE | `/community/discussions/{id}`                              | Delete discussion (author/admin only)         | Yes  |
+
+
+
+
+#### 🧩 DTOs 
+
+##### `Discussion` 
+
+| Property      | Type      | Description                                     |
+| ------------- | --------- | ----------------------------------------------- |
+| `Id`          | int       | Discussion identifier                           |
+| `Title`       | string    | Discussion title                                |
+| `AuthorName`  | string    | Display name of the creator (or “Deleted User”) |
+| `InitialPost` | `Post`    | First post that started the discussion          |
+| `AnswerPost`  | `Post?`   | The selected “answer” post (nullable)           |
+| `Category`    | string    | Category name (enum converted to string)        |
+| `IsClosed`    | bool      | Whether posting is locked                       |
+| `CreatedAt`   | DateTime  | UTC timestamp when discussion was created       |
+| `UpdatedAt`   | DateTime? | Timestamp of last change                        |
+| `PostCount`   | int       | Total number of posts in the discussion         |
+
+```csharp
+public class Discussion
+{
+    public int Id { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string AuthorName { get; set; } = "Deleted Author";
+    public Post InitialPost { get; set; } = null!;
+    public Post? AnswerPost { get; set; }
+    public string Category { get; set; } = string.Empty;
+    public bool IsClosed { get; set; } = false;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; set; }
+    public int PostCount { get; set; }
+}
+```
+
+##### `Post` 
+
+| Property       | Type     | Description                             |
+| -------------- | -------- | --------------------------------------- |
+| `Id`           | int      | Post identifier                         |
+| `AuthorName`   | string   | Creator of the post (or “Deleted User”) |
+| `Content`      | string   | Text of the message                     |
+| `IsEdited`     | bool     | True if post has been updated           |
+| `CreatedAt`    | DateTime | When the post was created               |
+| `UpdatedAt`    | DateTime | Last modification timestamp             |
+| `LikeCount`    | int      | Number of likes                         |
+| `DislikeCount` | int      | Number of dislikes                      |
+
+```csharp
+public class Post
+{
+    public int Id { get; set; }
+    public string AuthorName { get; set; } = "Deleted Author";
+    public string Content { get; set; } = string.Empty;
+    public bool IsEdited { get; set; } = false;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; }
+    public int LikeCount { get; set; } = 0;
+    public int DislikeCount { get; set; } = 0;
+}
+```
+
+The Category type DiscussionCategory supports:
+- General
+- Help
+- Bugs
+- Showcase
+- Suggestions
+
 ---
 
 ## Real-Time Collaboration (SignalR)
@@ -425,6 +554,7 @@ A condensed view of the API surface:
 | Real-time  | `LobbyHub` (SignalR)     | `/hubs/lobby`* |
 | Leaderboard | `LeaderboardController` | `/leaderboard` |
 | AdminLogs  | `AdminLogsController`    | `/logs`        |
+| Community  | `CommunityController`    | `/community`   |
 
 \* The exact hub route depends on the SignalR configuration in `Program.cs` / `Startup`.
 

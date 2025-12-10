@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using System.Reflection.Emit;
 using TuringMachinesAPI.Entities;
 using TuringMachinesAPI.Enums;
 
@@ -50,12 +51,60 @@ namespace TuringMachinesAPI.DataSources
                 .Property(p => p.Action)
                 .HasConversion(v => v.ToString(), v => Enum.Parse<ActionType>(v));
 
+            builder.Entity<Discussion>()
+                .Property(p => p.Category)
+                .HasConversion(v => v.ToString(), v => Enum.Parse<DiscussionCategory>(v));
+
             builder.Entity<AdminLog>()
                 .HasOne<Player>()
                 .WithMany()
                 .HasForeignKey(l => l.ActorId)
                 .IsRequired(false)
                 .OnDelete(deleteBehavior: DeleteBehavior.SetNull);
+
+            builder.Entity<Discussion>()
+                .HasOne(d => d.InitialPost)
+                .WithOne()
+                .HasForeignKey<Discussion>(d => d.InitialPostId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<Discussion>()
+                .HasOne(d => d.AnswerPost)
+                .WithOne()
+                .HasForeignKey<Discussion>(d => d.AnswerPostId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            builder.Entity<Post>()
+                .HasOne(p => p.Author)
+                .WithMany()
+                .HasForeignKey(p => p.AuthorId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            builder.Entity<Post>()
+                .HasOne(p => p.Discussion)
+                .WithMany(d => d.Posts)
+                .HasForeignKey(p => p.DiscussionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<Discussion>()
+                .HasOne(d => d.Author)
+                .WithMany()
+                .HasForeignKey(d => d.AuthorId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            builder.Entity<PostVote>()
+                .HasOne(p => p.Player)
+                .WithMany()
+                .HasForeignKey(pv => pv.PlayerId)
+                .IsRequired(true)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<PostVote>()
+                .HasOne(p => p.Post)
+                .WithMany()
+                .HasForeignKey(pv => pv.PostId)
+                .IsRequired(true)
+                .OnDelete(DeleteBehavior.Cascade);
         }
 
         public virtual DbSet<LevelWorkshopItem> Levels => Set<LevelWorkshopItem>();
@@ -67,6 +116,10 @@ namespace TuringMachinesAPI.DataSources
         public virtual DbSet<Entities.LeaderboardLevel> LeaderboardLevels => Set<Entities.LeaderboardLevel>();
         public virtual DbSet<Entities.LevelSubmission> LevelSubmissions => Set<Entities.LevelSubmission>();
         public virtual DbSet<Entities.AdminLog> AdminLogs => Set<Entities.AdminLog>();
+        public virtual DbSet<Entities.Discussion> Discussions => Set<Entities.Discussion>();
+        public virtual DbSet<Entities.Post> Posts => Set<Entities.Post>();
+
+        public virtual DbSet<Entities.PostVote> PostVotes => Set<Entities.PostVote>();
 
     }
 }
