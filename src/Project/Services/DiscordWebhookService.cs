@@ -75,5 +75,25 @@ namespace TuringMachinesAPI.Services
                 username: "Lobby Bot"
             );
         }
+
+        public async Task NotifyNewDiscussionAsync(string discussionTitle, string discussionAuthor)
+        {
+            await SendEmbedAsync(
+                title: "New Discussion Created!",
+                description: $"**{discussionAuthor}** started a new discussion: *{discussionTitle}*.",
+                color: 0xEB459E,
+                username: "Community Bot"
+            );
+        }
+
+        public async Task NotifyNewDiscussionPostAsync(string discussionTitle, string postAuthorName)
+        {
+            await SendEmbedAsync(
+                title: "New Post in Discussion!",
+                description: $"**{postAuthorName}** posted a new message in the discussion: *{discussionTitle}*.",
+                color: 0xEB459E,
+                username: "Community Bot"
+            );
+        }
     }
 }

@@ -14,11 +14,13 @@ namespace TuringMachinesAPI.Controllers
     public class CommunityController : ControllerBase
     {
         private readonly CommunityService communityService;
+        private readonly DiscordWebhookService discordWebhookService;
         private readonly AdminLogService adminLogService;
 
-        public CommunityController(CommunityService communityService, AdminLogService adminLogService)
+        public CommunityController(CommunityService communityService, DiscordWebhookService _discordwebHook, AdminLogService adminLogService)
         {
             this.communityService = communityService;
+            this.discordWebhookService = _discordwebHook;
             this.adminLogService = adminLogService;
         }
 
@@ -77,6 +79,7 @@ namespace TuringMachinesAPI.Controllers
                 return BadRequest("Failed to create discussion. Due to invalid input.");
             
             await adminLogService.CreateAdminLog(authorId, Enums.ActionType.Create, Enums.TargetEntityType.Discussion, discussion.Id);
+            await discordWebhookService.NotifyNewDiscussionAsync(discussion.Title, discussion.AuthorName);
             return CreatedAtAction(nameof(GetDiscussionById), new { id = discussion.Id }, discussion);
         }
 
@@ -100,6 +103,8 @@ namespace TuringMachinesAPI.Controllers
                 return BadRequest("Failed to post to discussion. Due to invalid input.");
 
             await adminLogService.CreateAdminLog(authorId, Enums.ActionType.Create, Enums.TargetEntityType.Post, post.Id);
+            var discussionTitle = communityService.GetDiscussionById(discussionId)?.Title ?? "a discussion";
+            await discordWebhookService.NotifyNewDiscussionPostAsync(discussionTitle, post.AuthorName);
             return CreatedAtAction(nameof(GetDiscussionById), new { id = discussionId }, post);
         }
 
