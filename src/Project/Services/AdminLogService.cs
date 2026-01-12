@@ -205,6 +205,14 @@ namespace TuringMachinesAPI.Services
                     db.WorkshopItems.Where(wi => wi.Id == id).Select(wi => wi.Name).FirstOrDefault() ?? "Unknown",
                 TargetEntityType.Lobby =>
                     db.Lobbies.Where(l => l.Id == id).Select(l => l.Name).FirstOrDefault() ?? "Unknown",
+                TargetEntityType.Discussion =>
+                    db.Discussions.Where(d => d.Id == id).Select(d => d.Title).FirstOrDefault() ?? "Unknown",
+                TargetEntityType.Post =>
+                    db.Posts.Where(p => p.Id == id)
+                        .Select(p => p.Discussion.Title)
+                        .FirstOrDefault() is string discussionTitle && !string.IsNullOrEmpty(discussionTitle)
+                        ? $"Post in Discussion: {discussionTitle}"
+                        : "Unknown",
                 TargetEntityType.LeaderboardLevel =>
                     db.LeaderboardLevels.Where(lb => lb.Id == id).Select(lb => lb.Name).FirstOrDefault() ?? "Unknown",
                 TargetEntityType.Player =>

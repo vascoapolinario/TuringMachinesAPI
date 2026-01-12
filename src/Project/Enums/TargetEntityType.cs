@@ -7,6 +7,8 @@
         LeaderboardSubmission,
         LeaderboardLevel,
         Lobby,
-        Player
+        Player,
+        Discussion,
+        Post
     }
 }

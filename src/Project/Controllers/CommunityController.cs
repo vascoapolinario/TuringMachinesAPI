@@ -1,9 +1,11 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Hosting;
 using System.Threading.Tasks;
 using TuringMachinesAPI.Dtos;
-using TuringMachinesAPI.Services;
+using TuringMachinesAPI.Entities;
 using TuringMachinesAPI.Enums;
+using TuringMachinesAPI.Services;
 
 namespace TuringMachinesAPI.Controllers
 {
@@ -67,12 +69,14 @@ namespace TuringMachinesAPI.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
-        public IActionResult CreateDiscussion([FromForm] string title, [FromForm] string content, [FromForm] string category)
+        public async Task<IActionResult> CreateDiscussion([FromForm] string title, [FromForm] string content, [FromForm] string category)
         {
             int authorId = int.Parse(User.FindFirst("id")!.Value);
             var discussion = communityService.CreateDiscussion(title, authorId, content, category);
             if (discussion is null)
                 return BadRequest("Failed to create discussion. Due to invalid input.");
+            
+            await adminLogService.CreateAdminLog(authorId, Enums.ActionType.Create, Enums.TargetEntityType.Discussion, discussion.Id);
             return CreatedAtAction(nameof(GetDiscussionById), new { id = discussion.Id }, discussion);
         }
 
@@ -88,12 +92,14 @@ namespace TuringMachinesAPI.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
-        public IActionResult PostToDiscussion(int discussionId, [FromForm] string content)
+        public async Task<IActionResult> PostToDiscussion(int discussionId, [FromForm] string content)
         {
             int authorId = int.Parse(User.FindFirst("id")!.Value);
             var post = communityService.CreatePost(discussionId, authorId, content);
             if (post is null)
                 return BadRequest("Failed to post to discussion. Due to invalid input.");
+
+            await adminLogService.CreateAdminLog(authorId, Enums.ActionType.Create, Enums.TargetEntityType.Post, post.Id);
             return CreatedAtAction(nameof(GetDiscussionById), new { id = discussionId }, post);
         }
 
@@ -109,12 +115,14 @@ namespace TuringMachinesAPI.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
-        public IActionResult EditPost(int postId, [FromForm] string content)
+        public async Task<IActionResult> EditPost(int postId, [FromForm] string content)
         {
             int editorId = int.Parse(User.FindFirst("id")!.Value);
             var post = communityService.EditPost(postId, editorId, content);
             if (post is null)
                 return BadRequest("Failed to edit post. Due to invalid input.");
+            
+            await adminLogService.CreateAdminLog(editorId, Enums.ActionType.Update, Enums.TargetEntityType.Post, post.Id);
             return Ok(post);
         }
 
@@ -129,12 +137,14 @@ namespace TuringMachinesAPI.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
-        public IActionResult DeletePost(int postId)
+        public async Task<IActionResult> DeletePost(int postId)
         {
             int authorId = int.Parse(User.FindFirst("id")!.Value);
             bool deleted = communityService.DeletePost(postId, authorId);
             if (!deleted)
                 return NotFound("Post not found.");
+
+            await adminLogService.CreateAdminLog(authorId, Enums.ActionType.Delete, Enums.TargetEntityType.Post, postId);
             return NoContent();
         }
 
@@ -265,12 +275,14 @@ namespace TuringMachinesAPI.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
-        public IActionResult DeleteDiscussion(int discussionId)
+        public async Task<IActionResult> DeleteDiscussion(int discussionId)
         {
             int userId = int.Parse(User.FindFirst("id")!.Value);
             bool deleted = communityService.DeleteDiscussion(discussionId, userId);
             if (!deleted)
                 return NotFound("Discussion not found.");
+
+            await adminLogService.CreateAdminLog(userId, Enums.ActionType.Delete, Enums.TargetEntityType.Post, discussionId);
             return Ok();
         }
     }
