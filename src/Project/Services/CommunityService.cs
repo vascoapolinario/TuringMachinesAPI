@@ -236,6 +236,20 @@ namespace TuringMachinesAPI.Services
                     cache.Set("Posts_Discussion_" + discussionId, new List<Dtos.Post> { postDto });
                 }
             }
+
+            if (cache.TryGetValue("Discussions", out IEnumerable<Dtos.Discussion>? discussions))
+            {
+                if (discussions != null)
+                {
+                    var updatedDiscussions = discussions.ToList();
+                    var index = updatedDiscussions.FindIndex(d => d.Id == discussionId);
+                    if (index != -1)
+                    {
+                        updatedDiscussions[index].PostCount += 1;
+                        cache.Set("Discussions", updatedDiscussions);
+                    }
+                }
+            }
             return postDto;
         }
 
@@ -506,6 +520,21 @@ namespace TuringMachinesAPI.Services
                         }
                     }
                 }
+
+                if (cache.TryGetValue("Discussions", out IEnumerable<Dtos.Discussion>? discussions))
+                {
+                    if (discussions != null)
+                    {
+                        var updatedDiscussions = discussions.ToList();
+                        var index = updatedDiscussions.FindIndex(d => d.Id == post.DiscussionId);
+                        if (index != -1)
+                        {
+                            updatedDiscussions[index].PostCount -= 1;
+                            cache.Set("Discussions", updatedDiscussions);
+                        }
+                    }
+                }
+
                 return true;
             }
             return false;
