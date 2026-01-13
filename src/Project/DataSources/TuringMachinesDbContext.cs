@@ -105,6 +105,17 @@ namespace TuringMachinesAPI.DataSources
                 .HasForeignKey(pv => pv.PostId)
                 .IsRequired(true)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<Report>()
+                .Property(r => r.ReportedItemType)
+                .HasConversion(v => v.ToString(), v => Enum.Parse<ReportType>(v));
+
+            builder.Entity<Report>()
+                .Property(r => r.Status)
+                .HasConversion(v => v.ToString(), v => Enum.Parse<ReportStatus>(v));
+
+
+
         }
 
         public virtual DbSet<LevelWorkshopItem> Levels => Set<LevelWorkshopItem>();
@@ -118,6 +129,8 @@ namespace TuringMachinesAPI.DataSources
         public virtual DbSet<Entities.AdminLog> AdminLogs => Set<Entities.AdminLog>();
         public virtual DbSet<Entities.Discussion> Discussions => Set<Entities.Discussion>();
         public virtual DbSet<Entities.Post> Posts => Set<Entities.Post>();
+
+        public virtual DbSet<Entities.Report> Reports => Set<Entities.Report>();
 
         public virtual DbSet<Entities.PostVote> PostVotes => Set<Entities.PostVote>();
 

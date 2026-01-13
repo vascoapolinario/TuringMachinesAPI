@@ -7,6 +7,7 @@
         Delete,
         Kick,
         Ban,
-        Unban
+        Unban,
+        Report
     }
 }

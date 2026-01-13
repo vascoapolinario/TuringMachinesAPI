@@ -95,5 +95,15 @@ namespace TuringMachinesAPI.Services
                 username: "Community Bot"
             );
         }
+
+        public async Task NotifyNewReport(Dtos.Report report)
+        {
+            await SendEmbedAsync(
+                title: "New Report Submitted!",
+                description: $"**{report.ReportingUserName}** reported {report.ReportedItemType} (ID: {report.ReportedItemId}) by **{report.ReportedUserName}** for the reason: *{report.Reason}*.",
+                color: 0xF04747,
+                username: "Report Bot"
+            );
+        }
     }
 }

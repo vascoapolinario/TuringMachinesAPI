@@ -15,13 +15,11 @@ namespace TuringMachinesAPI.Services
     public class CommunityService
     {
         private readonly TuringMachinesDbContext db;
-        private readonly IConfiguration config;
         private readonly IMemoryCache cache;
 
-        public CommunityService(TuringMachinesDbContext _db, IConfiguration _config, IMemoryCache _cache)
+        public CommunityService(TuringMachinesDbContext _db, IMemoryCache _cache)
         {
             db = _db;
-            config = _config;
             cache = _cache;
         }
 

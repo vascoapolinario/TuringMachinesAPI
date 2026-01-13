@@ -8,6 +8,7 @@ using TuringMachinesAPI.DataSources;
 using TuringMachinesAPI.Hubs;
 using TuringMachinesAPI.Services;
 using TuringMachinesAPI.Middlewares;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -160,8 +161,15 @@ builder.Services.AddScoped<LobbyService>();
 builder.Services.AddScoped<PlayerService>();
 builder.Services.AddScoped<LeaderboardService>();
 builder.Services.AddScoped<CommunityService>();
+builder.Services.AddScoped<ReportService>();
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(
+            new JsonStringEnumConverter()
+        );
+    });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -210,6 +218,9 @@ using (var scope_cache = app.Services.CreateScope())
 
         var communityService = scope_cache.ServiceProvider.GetRequiredService<CommunityService>();
         communityService.GetDiscussions();
+
+        var reportService = scope_cache.ServiceProvider.GetRequiredService<ReportService>();
+        reportService.GetAllReports();
     }
 }
 

@@ -446,6 +446,126 @@ The Category type DiscussionCategory supports:
 
 ---
 
+### Reports
+
+The **Reports** module provides a lightweight moderation pipeline so players can flag inappropriate behavior or content (players, discussions/posts, workshop items, etc.).
+
+#### Features
+
+* Any authenticated user can **submit a report**
+* Reports are stored in the `Reports` table with:
+
+  * reporter identity (id + username)
+  * target item type (`ReportType`)
+  * reported user (username + resolved user id)
+  * reported item id (for content reports)
+  * free-text reason (up to 1000 chars)
+  * status workflow (`Open → Resolved/Rejected`)
+  * timestamps (`CreatedAt`, `UpdatedAt`)
+* Duplicate prevention:
+
+  * the API rejects repeated reports with the same reporter + type + target + item id
+  * users cannot report themselves
+* Admin-only moderation:
+
+  * view all reports
+  * update report status
+  * delete reports
+* Cache-aware retrieval:
+
+  * `GetAllReports()` caches the report list under the `"Reports"` cache key to reduce DB reads
+* Discord integration:
+
+  * when a report is submitted, the API triggers a Discord webhook notification via `DiscordWebhookService.NotifyNewReport(report)`
+
+#### Report Types and Status
+
+Supported report types:
+
+* `Player`
+* `Discussion`
+* `Post`
+* `WorkshopItem`
+* `Other`
+
+Report status workflow:
+
+* `Open` (default on creation)
+* `Resolved`
+* `Rejected`
+
+#### Special handling: Player reports
+
+If a report is of type **`Player`** and `ReportedItemId` is omitted, the server automatically resolves the reported player’s ID from `ReportedPlayerName` and uses that as `ReportedItemId`.
+
+This allows the client to submit player reports without knowing internal numeric IDs.
+
+---
+
+#### ⚙ Endpoints
+
+| Method | Route                 | Description                      | Auth        |
+| ------ | --------------------- | -------------------------------- | ----------- |
+| GET    | `/reports`            | List all reports (newest first*) | Yes (Admin) |
+| POST   | `/reports`            | Submit a new report              | Yes         |
+| PUT    | `/reports/{reportId}` | Update report status             | Yes (Admin) |
+| DELETE | `/reports/{reportId}` | Delete a report                  | Yes (Admin) |
+
+* Ordering depends on current DB query; if you want newest-first consistently, sort by `CreatedAt desc` in `GetAllReports()`.
+
+---
+
+#### DTOs
+
+##### `IncomingReport`
+
+Used when submitting a report.
+
+| Property             | Type   | Required | Notes                                                       |
+| -------------------- | ------ | -------: | ----------------------------------------------------------- |
+| `ReportType`         | string |        ✅ | Must match `ReportType` enum (`Player`, `Discussion`, etc.) |
+| `ReportedPlayerName` | string |        ✅ | Username of the reported player                             |
+| `ReportedItemId`     | int?   |        ❌ | Required for non-Player reports                             |
+| `Reason`             | string |        ✅ | Max 1000 chars                                              |
+
+Example request:
+
+```json
+{
+  "reportType": "WorkshopItem",
+  "reportedPlayerName": "SomeUser",
+  "reportedItemId": 123,
+  "reason": "Spam / inappropriate description."
+}
+```
+
+##### `Report`
+
+Returned by the API and used for admin moderation views.
+
+| Property            | Type     |
+| ------------------- | -------- |
+| `Id`                | int      |
+| `ReportingUserName` | string   |
+| `ReportedItemType`  | string   |
+| `ReportedUserName`  | string   |
+| `ReportedItemId`    | int      |
+| `Reason`            | string   |
+| `Status`            | string   |
+| `CreatedAt`         | DateTime |
+| `UpdatedAt`         | DateTime |
+
+
+### 2) Mention caching key in Cache section
+
+Add a row:
+
+| Cache Key | Contents        | Used In       |
+| --------- | --------------- | ------------- |
+| `Reports` | All report DTOs | ReportService |
+
+---
+
 ## Real-Time Collaboration (SignalR)
 
 The `LobbyHub` is a SignalR hub that coordinates real-time state between clients in the same lobby.  
@@ -555,6 +675,7 @@ A condensed view of the API surface:
 | Leaderboard | `LeaderboardController` | `/leaderboard` |
 | AdminLogs  | `AdminLogsController`    | `/logs`        |
 | Community  | `CommunityController`    | `/community`   |
+| Reports    | `ReportController`       | `/reports`     |
 
 \* The exact hub route depends on the SignalR configuration in `Program.cs` / `Startup`.
 
@@ -578,6 +699,7 @@ Before caching, some endpoints could trigger hundreds or thousands of SQL querie
 | `Leaderboard`       | All LevelSubmission DTOs        | LeaderboardService            |
 | `LeaderboardLevels` | All LeaderboardLevel DTOs       | LeaderboardService            |
 | `AdminLogs`         | All AdminLog DTOs               | AdminLogService               |
+| `Reports`           | All report DTOs                 | ReportService                 |
 
 Caches are built at the launch of the API, unless there are no players.
 
