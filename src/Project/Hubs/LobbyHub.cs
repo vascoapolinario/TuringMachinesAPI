@@ -82,6 +82,9 @@ namespace TuringMachinesAPI.Hubs
         }
 
 
+        /// <summary>
+        /// Host broadcasts the entire Turing machine state (nodes, connections, etc.)
+        /// </summary>
         public async Task SyncEnvironment(object payload)
         {
             Console.WriteLine($"[Hub] SyncEnvironment RAW payload: {payload?.GetType()}");
@@ -106,13 +109,37 @@ namespace TuringMachinesAPI.Hubs
             Console.WriteLine($"[Lobby {lobbyCode}] Environment synced (broadcasted).");
         }
 
+        /// <summary>
+        /// Client proposes to add a node (only host should handle this).
+        /// </summary>
         public async Task ProposeNode(object payload)
         {
             try
             {
                 Console.WriteLine($"[ProposeNode] RAW payload type: {payload?.GetType()}");
 
-                JObject data = ParsePayload(payload);
+                JObject data = null;
+
+                switch (payload)
+                {
+                    case JObject jObj:
+                        data = jObj;
+                        break;
+                    case JArray jArr when jArr.Count > 0:
+                        data = jArr[0] as JObject;
+                        break;
+                    default:
+                        var json = payload?.ToString();
+                        if (!string.IsNullOrEmpty(json))
+                        {
+                            if (json.TrimStart().StartsWith("["))
+                                data = JArray.Parse(json).FirstOrDefault() as JObject;
+                            else
+                                data = JObject.Parse(json);
+                        }
+                        break;
+                }
+
                 if (data == null)
                 {
                     Console.WriteLine("[ProposeNode] Invalid payload format");
@@ -150,112 +177,34 @@ namespace TuringMachinesAPI.Hubs
         }
 
 
-        public async Task ProposeNodeDrag(object payload)
-        {
-            try
-            {
-                Console.WriteLine($"[ProposeNodeDrag] RAW payload type: {payload?.GetType()}");
-
-                JObject data = ParsePayload(payload);
-                if (data == null)
-                {
-                    Console.WriteLine("[ProposeNodeDrag] Invalid payload format");
-                    return;
-                }
-
-                string lobbyCode = data["lobbyCode"]?.ToString() ?? "";
-                int nodeId = data["nodeId"]?.ToObject<int>() ?? -1;
-                float x = data["x"]?.ToObject<float>() ?? 0f;
-                float y = data["y"]?.ToObject<float>() ?? 0f;
-
-                var lobby = _lobbyService.GetByCode(lobbyCode);
-                if (lobby == null)
-                {
-                    Console.WriteLine($"[ProposeNodeDrag] Lobby {lobbyCode} not found");
-                    return;
-                }
-
-                await Clients.Group(lobbyCode).SendAsync("NodeDragProposed", new
-                {
-                    lobbyCode,
-                    nodeId,
-                    x,
-                    y,
-                    proposer = Context.User?.Identity?.Name ?? "Unknown"
-                });
-
-                Console.WriteLine($"[Lobby {lobbyCode}] NodeDragProposed: node {nodeId} -> ({x}, {y}) from {Context.User?.Identity?.Name}");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[ProposeNodeDrag] ERROR: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Client proposes to edit (update the logic of) an existing connection.
-        /// The host applies the edit and broadcasts the updated state.
-        /// </summary>
-        public async Task ProposeConnectionEdit(object payload)
-        {
-            try
-            {
-                Console.WriteLine($"[ProposeConnectionEdit] RAW payload type: {payload?.GetType()}");
-
-                JObject data = ParsePayload(payload);
-                if (data == null)
-                {
-                    Console.WriteLine("[ProposeConnectionEdit] Invalid payload format");
-                    return;
-                }
-
-                string lobbyCode = data["lobbyCode"]?.ToString() ?? "";
-                int startId = data["startId"]?.ToObject<int>() ?? -1;
-                int endId = data["endId"]?.ToObject<int>() ?? -1;
-
-                var lobby = _lobbyService.GetByCode(lobbyCode);
-                if (lobby == null)
-                {
-                    Console.WriteLine($"[ProposeConnectionEdit] Lobby {lobbyCode} not found");
-                    return;
-                }
-
-                var read = data["read"]?.ToObject<List<string>>() ?? new List<string>();
-                var write = data["write"]?.ToObject<List<string>>() ?? new List<string>();
-                var move = data["move"]?.ToObject<List<string>>() ?? new List<string>();
-                var read2 = data["read2"]?.ToObject<List<string>>() ?? new List<string>();
-                var write2 = data["write2"]?.ToObject<List<string>>() ?? new List<string>();
-                var move2 = data["move2"]?.ToObject<List<string>>() ?? new List<string>();
-
-                await Clients.Group(lobbyCode).SendAsync("ConnectionEditProposed", new
-                {
-                    lobbyCode,
-                    startId,
-                    endId,
-                    read,
-                    write,
-                    move,
-                    read2,
-                    write2,
-                    move2,
-                    proposer = Context.User?.Identity?.Name ?? "Unknown"
-                });
-
-                Console.WriteLine($"[Lobby {lobbyCode}] ConnectionEditProposed {startId}->{endId} from {Context.User?.Identity?.Name}");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[ProposeConnectionEdit] ERROR: {ex.Message}");
-            }
-        }
-
         public async Task ProposeConnection(object payload)
         {
             try
             {
                 Console.WriteLine($"[ProposeConnection] RAW payload type: {payload?.GetType()}");
 
-                JObject data = ParsePayload(payload);
+                JObject data = null;
+
+                switch (payload)
+                {
+                    case JObject jObj:
+                        data = jObj;
+                        break;
+                    case JArray jArr when jArr.Count > 0:
+                        data = jArr[0] as JObject;
+                        break;
+                    default:
+                        var json = payload?.ToString();
+                        if (!string.IsNullOrEmpty(json))
+                        {
+                            if (json.TrimStart().StartsWith("["))
+                                data = JArray.Parse(json).FirstOrDefault() as JObject;
+                            else
+                                data = JObject.Parse(json);
+                        }
+                        break;
+                }
+
                 if (data == null)
                 {
                     Console.WriteLine("[ProposeConnection] Invalid payload format");
@@ -308,7 +257,28 @@ namespace TuringMachinesAPI.Hubs
             {
                 Console.WriteLine($"[ProposeDelete] RAW payload type: {payload?.GetType()}");
 
-                JObject data = ParsePayload(payload);
+                JObject data = null;
+
+                switch (payload)
+                {
+                    case JObject jObj:
+                        data = jObj;
+                        break;
+                    case JArray jArr when jArr.Count > 0:
+                        data = jArr[0] as JObject;
+                        break;
+                    default:
+                        var json = payload?.ToString();
+                        if (!string.IsNullOrEmpty(json))
+                        {
+                            if (json.TrimStart().StartsWith("["))
+                                data = JArray.Parse(json).FirstOrDefault() as JObject;
+                            else
+                                data = JObject.Parse(json);
+                        }
+                        break;
+                }
+
                 if (data == null)
                 {
                     Console.WriteLine("[ProposeDelete] Invalid payload format");
@@ -420,25 +390,5 @@ namespace TuringMachinesAPI.Hubs
             }
         }
 
-        private static JObject ParsePayload(object payload)
-        {
-            switch (payload)
-            {
-                case JObject jObj:
-                    return jObj;
-                case JArray jArr when jArr.Count > 0:
-                    return jArr[0] as JObject;
-                default:
-                    var json = payload?.ToString();
-                    if (!string.IsNullOrEmpty(json))
-                    {
-                        if (json.TrimStart().StartsWith("["))
-                            return JArray.Parse(json).FirstOrDefault() as JObject;
-                        else
-                            return JObject.Parse(json);
-                    }
-                    return null;
-            }
-        }
     }
 }
