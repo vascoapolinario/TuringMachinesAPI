@@ -162,6 +162,7 @@ builder.Services.AddScoped<PlayerService>();
 builder.Services.AddScoped<LeaderboardService>();
 builder.Services.AddScoped<CommunityService>();
 builder.Services.AddScoped<ReportService>();
+builder.Services.AddScoped<LarpService>();
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>

@@ -134,5 +134,7 @@ namespace TuringMachinesAPI.DataSources
 
         public virtual DbSet<Entities.PostVote> PostVotes => Set<Entities.PostVote>();
 
+        public virtual DbSet<Entities.Larp> Larps => Set<Entities.Larp>();
+
     }
 }
